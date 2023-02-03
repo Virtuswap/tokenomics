@@ -11,7 +11,7 @@ import './interfaces/IvStaker.sol';
 contract vStaker is IvStaker {
     SD59x18 public constant V = SD59x18.wrap(2.3762e18);
     SD59x18 public constant v = SD59x18.wrap(-7.069557693e9);
-    SD59x18 public constant r = SD59x18.wrap(0.01e18);
+    SD59x18 public constant r = SD59x18.wrap(3e9);
     SD59x18 public constant b = SD59x18.wrap(0.01e18);
     SD59x18 public constant alpha = SD59x18.wrap(1e18);
     SD59x18 public constant beta = SD59x18.wrap(0.5e18);
@@ -27,8 +27,8 @@ contract vStaker is IvStaker {
     SD59x18 totalRewardPoints;
     SD59x18 compoundRateGlobal;
     SD59x18 totalVrswAvailable;
+    SD59x18 allocationPointsPct;
     uint256 startTimestamp;
-    uint256 allocationPointsPct;
 
     address public immutable lpToken;
 
@@ -95,8 +95,12 @@ contract vStaker is IvStaker {
     function lockVrsw(uint256 amount, uint256 lockDuration) external override {}
 
     function setAllocationPoints(
-        uint256 newAllocationPoints
-    ) external override {}
+        uint256 newAllocationPointsPct
+    ) external override {
+        _updateStateBefore();
+        allocationPointsPct = sd(int256(newAllocationPointsPct) * 1e16);
+        _updateStateAfter();
+    }
 
     function _updateStateBefore() private {
         totalVrswAvailable = totalVrswAvailable
@@ -146,7 +150,7 @@ contract vStaker is IvStaker {
         SD59x18 _r
     ) private view returns (SD59x18 amount) {
         amount = V
-            .mul(sd(int256(allocationPointsPct * 1e16)))
+            .mul(allocationPointsPct)
             .mul(
                 exp(
                     _r.add(v).mul(
