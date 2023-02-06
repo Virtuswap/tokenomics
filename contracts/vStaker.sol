@@ -2,7 +2,7 @@
 
 pragma solidity ^0.8.0;
 
-import {SD59x18, sd, exp, UNIT} from '@prb/math/src/SD59x18.sol';
+import {SD59x18, sd, unwrap, exp, UNIT} from '@prb/math/src/SD59x18.sol';
 import '@openzeppelin/contracts/token/ERC20/IERC20.sol';
 import '@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol';
 import './types.sol';
@@ -21,6 +21,7 @@ contract vStaker is IvStaker {
     mapping(address => SD59x18) public compoundRate;
     mapping(address => SD59x18) public mu;
     mapping(address => SD59x18) public rewardPoints;
+    mapping(address => SD59x18) public rewardsClaimed;
     mapping(address => Stake[]) public stakes;
 
     SD59x18 totalMu;
@@ -31,9 +32,11 @@ contract vStaker is IvStaker {
     uint256 startTimestamp;
 
     address public immutable lpToken;
+    address public immutable rewardToken;
 
-    constructor(address _lpToken) {
+    constructor(address _lpToken, address _rewardToken) {
         lpToken = _lpToken;
+        rewardToken = _rewardToken;
         startTimestamp = block.timestamp;
     }
 
@@ -77,9 +80,25 @@ contract vStaker is IvStaker {
         );
     }
 
-    function claimRewards() external override {}
+    function claimRewards() external override {
+        _updateStateBefore();
+        uint256 amountToClaim = _calculateAccruedRewards(msg.sender, true);
+        rewardsClaimed[msg.sender] = rewardsClaimed[msg.sender].add(
+            sd(int256(amountToClaim))
+        );
+        if (amountToClaim > 0) {
+            SafeERC20.safeTransfer(
+                IERC20(rewardToken),
+                msg.sender,
+                amountToClaim
+            );
+        }
+        _updateStateAfter();
+    }
 
-    function viewRewards() external view override returns (uint256 rewards) {}
+    function viewRewards() external view override returns (uint256 rewards) {
+        rewards = _calculateAccruedRewards(msg.sender, false);
+    }
 
     function viewStakes()
         external
@@ -102,23 +121,69 @@ contract vStaker is IvStaker {
         _updateStateAfter();
     }
 
-    function _updateStateBefore() private {
-        totalVrswAvailable = totalVrswAvailable
-            .add(_calculateAlgorithmicVrswEmission(sd(0)))
-            .sub(totalVrswAvailable);
+    function _calculateAccruedRewards(
+        address who,
+        bool isStateChanged
+    ) private view returns (uint256) {
+        (
+            SD59x18 _totalVrswAvailable,
+            SD59x18 _senderRewardPoints,
+            SD59x18 _totalRewardPoints,
+            ,
+
+        ) = isStateChanged
+                ? (
+                    totalVrswAvailable,
+                    rewardPoints[msg.sender],
+                    totalRewardPoints,
+                    compoundRate[msg.sender],
+                    compoundRateGlobal
+                )
+                : _calculateStateBefore();
+        return
+            uint256(
+                unwrap(
+                    _senderRewardPoints
+                        .mul(_totalVrswAvailable)
+                        .div(_totalRewardPoints)
+                        .sub(rewardsClaimed[who])
+                )
+            );
+    }
+
+    function _calculateStateBefore()
+        private
+        view
+        returns (
+            SD59x18 _totalVrswAvailable,
+            SD59x18 _senderRewardPoints,
+            SD59x18 _totalRewardPoints,
+            SD59x18 _senderCompoundRate,
+            SD59x18 _compoundRateGlobal
+        )
+    {
+        _totalVrswAvailable = _calculateAlgorithmicVrswEmission(sd(0));
         SD59x18 algoEmissionR = _calculateAlgorithmicVrswEmission(r);
         SD59x18 deltaCompoundRate = algoEmissionR.sub(compoundRate[msg.sender]);
         SD59x18 deltaCompoundRateGlobal = algoEmissionR.sub(compoundRateGlobal);
-        rewardPoints[msg.sender] = rewardPoints[msg.sender].add(
+        _senderRewardPoints = rewardPoints[msg.sender].add(
             mu[msg.sender].mul(deltaCompoundRate)
         );
-        totalRewardPoints = totalRewardPoints.add(
+        _totalRewardPoints = totalRewardPoints.add(
             totalMu.mul(deltaCompoundRateGlobal)
         );
-        compoundRate[msg.sender] = compoundRate[msg.sender].add(
-            deltaCompoundRate
-        );
-        compoundRateGlobal = compoundRateGlobal.add(deltaCompoundRateGlobal);
+        _senderCompoundRate = compoundRate[msg.sender].add(deltaCompoundRate);
+        _compoundRateGlobal = compoundRateGlobal.add(deltaCompoundRateGlobal);
+    }
+
+    function _updateStateBefore() private {
+        (
+            totalVrswAvailable,
+            rewardPoints[msg.sender],
+            totalRewardPoints,
+            compoundRate[msg.sender],
+            compoundRateGlobal
+        ) = _calculateStateBefore();
     }
 
     function _updateStateAfter() private {
