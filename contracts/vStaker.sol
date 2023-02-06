@@ -2,9 +2,10 @@
 
 pragma solidity ^0.8.0;
 
-import {SD59x18, sd, unwrap, exp, UNIT} from '@prb/math/src/SD59x18.sol';
+import {SD59x18, sd, unwrap, exp, UNIT, ZERO} from '@prb/math/src/SD59x18.sol';
 import '@openzeppelin/contracts/token/ERC20/IERC20.sol';
 import '@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol';
+import '@openzeppelin/contracts/utils/math/Math.sol';
 import './types.sol';
 import './interfaces/IvStaker.sol';
 
@@ -23,6 +24,7 @@ contract vStaker is IvStaker {
     mapping(address => SD59x18) public rewardPoints;
     mapping(address => SD59x18) public rewardsClaimed;
     mapping(address => Stake[]) public stakes;
+    mapping(address => uint256) public firstUnlockTs;
 
     SD59x18 totalMu;
     SD59x18 totalRewardPoints;
@@ -33,37 +35,58 @@ contract vStaker is IvStaker {
 
     address public immutable lpToken;
     address public immutable rewardToken;
+    address public immutable vrswToken;
+    address public immutable gVrswToken;
 
-    constructor(address _lpToken, address _rewardToken) {
+    constructor(
+        address _lpToken,
+        address _rewardToken,
+        address _vrswToken,
+        address _gVrswToken
+    ) {
         lpToken = _lpToken;
         rewardToken = _rewardToken;
+        vrswToken = _vrswToken;
+        gVrswToken = _gVrswToken;
         startTimestamp = block.timestamp;
     }
 
-    function stakeVrsw(uint256 amount, uint256 lockDuration) external override {
-        // TODO
-        /*
-        _updateRewardPoints();
-        
+    function stakeVrsw(uint256 amount) external override {
+        _updateStateBefore();
+
         Stake[] storage senderStakes = stakes[msg.sender];
-        Stake memory newStake;
 
-        if (freeStakeId[msg.sender] == 0) {
-            senderStakes.push(Stake(
-                0, 0, 0, 0, 0
-            ));
-            ++freeStakeId[msg.sender];
+        if (senderStakes.length == 0) {
+            senderStakes.push(Stake(0, 0, ZERO, 0));
         }
 
-        if (lockingDuration == 0) {
-            // staking
-            senderStakes[msg.sender][0] = _newVrswStakeWithoutLock();
-        } else {
-            // locking
-        }
-        newStake.lockDuration = lockDuration;
-        //newStake.discountFactor = e^(-rx);
-         */
+        Stake memory oldStake = senderStakes[0];
+
+        senderStakes[0] = Stake(
+            block.timestamp,
+            0,
+            sd(int256(oldStake.amount))
+                .mul(oldStake.discountFactor)
+                .add(
+                    sd(int256(amount)).mul(
+                        exp(
+                            r.mul(sd(-int256(block.timestamp - startTimestamp)))
+                        )
+                    )
+                )
+                .div(sd(int256(oldStake.amount + amount))),
+            oldStake.amount + amount
+        );
+
+        _updateStateAfter();
+
+        SafeERC20.safeTransferFrom(
+            IERC20(vrswToken),
+            msg.sender,
+            address(this),
+            amount
+        );
+        //gVrswToken.mint(msg.sender, amount);
     }
 
     function stakeLp(uint256 amount) external override {
@@ -107,25 +130,157 @@ contract vStaker is IvStaker {
         override
         returns (Stake[] memory rewards)
     {
-        // TODO
+        rewards = stakes[msg.sender];
     }
 
     function unstakeLp(uint256 amount) external override {
         require(
-            int256(amount) <= unwrap(lpStake[msg.sender]),
+            int256(amount) <= unwrap(lpStake[msg.sender]) && amount > 0,
             'amount is too high'
         );
         _updateStateBefore();
         lpStake[msg.sender] = lpStake[msg.sender].sub(sd(int256(amount)));
         _updateStateAfter();
+
+        SafeERC20.safeTransfer(IERC20(lpToken), msg.sender, amount);
     }
 
-    function unstakeVrsw(address who) external override {
-        // TODO
+    function unstakeVrsw(uint256 amount) external override {
+        Stake[] storage senderStakes = stakes[msg.sender];
+        if (senderStakes.length == 0) {
+            senderStakes.push(Stake(0, 0, ZERO, 0));
+        }
+
+        require(
+            amount > 0 && amount <= senderStakes[0].amount,
+            'insufficient amount'
+        );
+
+        _updateStateBefore();
+
+        Stake memory oldStake = senderStakes[0];
+
+        senderStakes[0] = Stake(
+            block.timestamp,
+            0,
+            oldStake.discountFactor,
+            oldStake.amount - amount
+        );
+
+        _updateStateAfter();
+
+        SafeERC20.safeTransfer(IERC20(vrswToken), msg.sender, amount);
+        //gVrswToken.burn(msg.sender, amount);
     }
 
     function lockVrsw(uint256 amount, uint256 lockDuration) external override {
-        // TODO
+        Stake[] storage senderStakes = stakes[msg.sender];
+        if (senderStakes.length == 0) {
+            senderStakes.push(Stake(0, 0, ZERO, 0));
+        }
+
+        require(amount > 0, 'insufficient amount');
+        require(lockDuration > 0, 'insufficient lock duration');
+
+        _updateStateBefore();
+
+        senderStakes.push(
+            Stake(
+                block.timestamp,
+                lockDuration,
+                exp(r.mul(sd(-int256(block.timestamp - startTimestamp)))),
+                amount
+            )
+        );
+
+        _updateStateAfter();
+
+        SafeERC20.safeTransferFrom(
+            IERC20(vrswToken),
+            msg.sender,
+            address(this),
+            amount
+        );
+        //gVrswToken.mint(msg.sender, amount);
+    }
+
+    function lockStakedVrsw(
+        uint256 amount,
+        uint256 lockDuration
+    ) external override {
+        Stake[] storage senderStakes = stakes[msg.sender];
+        if (senderStakes.length == 0) {
+            senderStakes.push(Stake(0, 0, ZERO, 0));
+        }
+
+        require(
+            amount > 0 && amount <= senderStakes[0].amount,
+            'insufficient amount'
+        );
+        require(lockDuration > 0, 'insufficient lock duration');
+
+        _updateStateBefore();
+
+        Stake memory oldStake = senderStakes[0];
+
+        senderStakes[0] = Stake(
+            block.timestamp,
+            0,
+            oldStake.discountFactor,
+            oldStake.amount - amount
+        );
+
+        senderStakes.push(
+            Stake(
+                block.timestamp,
+                lockDuration,
+                exp(r.mul(sd(-int256(block.timestamp - startTimestamp)))),
+                amount
+            )
+        );
+
+        _updateStateAfter();
+    }
+
+    function checkLock(
+        address who
+    ) external override returns (bool isUnlocked) {
+        _updateStateBefore();
+        isUnlocked =
+            firstUnlockTs[who] > 0 &&
+            firstUnlockTs[who] < block.timestamp;
+        _updateStateAfter();
+    }
+
+    function withdrawUnlockedVrsw(address who) external override {
+        _updateStateBefore();
+        Stake[] storage userStakes = stakes[who];
+        uint256 nextUnlockTs = (1 << 256) - 1;
+        uint256 vrswToWithdraw = 0;
+        uint256 lastIndex = userStakes.length;
+        for (uint i = lastIndex; i > 0; --i) {
+            if (
+                userStakes[i].startTs + userStakes[i].lockDuration <
+                block.timestamp
+            ) {
+                vrswToWithdraw += userStakes[i].amount;
+                userStakes[i] = userStakes[lastIndex-- - 1];
+                userStakes.pop();
+            } else {
+                nextUnlockTs = Math.min(
+                    nextUnlockTs,
+                    userStakes[i].lockDuration + userStakes[i].startTs
+                );
+            }
+        }
+        firstUnlockTs[who] = (
+            nextUnlockTs == (1 << 256) - 1 ? 0 : nextUnlockTs
+        );
+        _updateStateAfter();
+        if (vrswToWithdraw > 0) {
+            SafeERC20.safeTransfer(IERC20(vrswToken), who, vrswToWithdraw);
+            //gVrswToken.burn(who, vrswToWithdraw);
+        }
     }
 
     function setAllocationPoints(

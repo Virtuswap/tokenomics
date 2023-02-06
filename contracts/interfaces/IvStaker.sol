@@ -5,7 +5,7 @@ pragma solidity ^0.8.0;
 import '../types.sol';
 
 interface IvStaker {
-    function stakeVrsw(uint256 amount, uint256 lockDuration) external;
+    function stakeVrsw(uint256 amount) external;
 
     function stakeLp(uint256 amount) external;
 
@@ -17,9 +17,15 @@ interface IvStaker {
 
     function unstakeLp(uint256 amount) external;
 
-    function unstakeVrsw(address who) external;
-
     function lockVrsw(uint256 amount, uint256 lockDuration) external;
+
+    function lockStakedVrsw(uint256 amount, uint256 lockDuration) external;
+
+    function unstakeVrsw(uint256 amount) external;
+
+    function checkLock(address who) external returns (bool isUnlocked);
+
+    function withdrawUnlockedVrsw(address who) external;
 
     function setAllocationPoints(uint256 newAllocationPoints) external;
 }
