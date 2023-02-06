@@ -41,6 +41,7 @@ contract vStaker is IvStaker {
     }
 
     function stakeVrsw(uint256 amount, uint256 lockDuration) external override {
+        // TODO
         /*
         _updateRewardPoints();
         
@@ -105,13 +106,27 @@ contract vStaker is IvStaker {
         view
         override
         returns (Stake[] memory rewards)
-    {}
+    {
+        // TODO
+    }
 
-    function unstakeLp(uint256 amount) external override {}
+    function unstakeLp(uint256 amount) external override {
+        require(
+            int256(amount) <= unwrap(lpStake[msg.sender]),
+            'amount is too high'
+        );
+        _updateStateBefore();
+        lpStake[msg.sender] = lpStake[msg.sender].sub(sd(int256(amount)));
+        _updateStateAfter();
+    }
 
-    function unstakeVrsw(address who) external override {}
+    function unstakeVrsw(address who) external override {
+        // TODO
+    }
 
-    function lockVrsw(uint256 amount, uint256 lockDuration) external override {}
+    function lockVrsw(uint256 amount, uint256 lockDuration) external override {
+        // TODO
+    }
 
     function setAllocationPoints(
         uint256 newAllocationPointsPct
