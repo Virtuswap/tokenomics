@@ -34,18 +34,11 @@ contract vStaker is IvStaker {
     uint256 startTimestamp;
 
     address public immutable lpToken;
-    address public immutable rewardToken;
     address public immutable vrswToken;
     address public immutable gVrswToken;
 
-    constructor(
-        address _lpToken,
-        address _rewardToken,
-        address _vrswToken,
-        address _gVrswToken
-    ) {
+    constructor(address _lpToken, address _vrswToken, address _gVrswToken) {
         lpToken = _lpToken;
-        rewardToken = _rewardToken;
         vrswToken = _vrswToken;
         gVrswToken = _gVrswToken;
         startTimestamp = block.timestamp;
@@ -122,7 +115,7 @@ contract vStaker is IvStaker {
 
         if (amountToClaim > 0) {
             SafeERC20.safeTransfer(
-                IERC20(rewardToken),
+                IERC20(vrswToken),
                 msg.sender,
                 amountToClaim
             );
