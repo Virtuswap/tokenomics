@@ -8,5 +8,5 @@ struct Stake {
     uint256 startTs;
     uint256 lockDuration;
     SD59x18 discountFactor;
-    uint256 amount;
+    SD59x18 amount;
 }
