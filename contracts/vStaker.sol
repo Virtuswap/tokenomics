@@ -7,6 +7,8 @@ import '@openzeppelin/contracts/token/ERC20/IERC20.sol';
 import '@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol';
 import '@openzeppelin/contracts/utils/math/Math.sol';
 import './types.sol';
+import './Vrsw.sol';
+import './GVrsw.sol';
 import './interfaces/IvStaker.sol';
 
 contract vStaker is IvStaker {
@@ -34,13 +36,13 @@ contract vStaker is IvStaker {
     uint256 startTimestamp;
 
     address public immutable lpToken;
-    address public immutable vrswToken;
-    address public immutable gVrswToken;
+    Vrsw public immutable vrswToken;
+    gVrsw public immutable gVrswToken;
 
     constructor(address _lpToken, address _vrswToken, address _gVrswToken) {
         lpToken = _lpToken;
-        vrswToken = _vrswToken;
-        gVrswToken = _gVrswToken;
+        vrswToken = Vrsw(_vrswToken);
+        gVrswToken = gVrsw(_gVrswToken);
         startTimestamp = block.timestamp;
     }
 
@@ -87,7 +89,7 @@ contract vStaker is IvStaker {
             address(this),
             amount
         );
-        //gVrswToken.mint(msg.sender, amount);
+        gVrswToken.mint(msg.sender, amount);
     }
 
     function stakeLp(uint256 amount) external override {
@@ -163,7 +165,7 @@ contract vStaker is IvStaker {
         _updateStateAfter();
 
         SafeERC20.safeTransfer(IERC20(vrswToken), msg.sender, amount);
-        //gVrswToken.burn(msg.sender, amount);
+        gVrswToken.burn(msg.sender, amount);
     }
 
     function lockVrsw(uint256 amount, uint256 lockDuration) external override {
@@ -185,7 +187,7 @@ contract vStaker is IvStaker {
             address(this),
             amount
         );
-        //gVrswToken.mint(msg.sender, amount);
+        gVrswToken.mint(msg.sender, amount);
     }
 
     function lockStakedVrsw(
@@ -246,7 +248,7 @@ contract vStaker is IvStaker {
         _updateStateAfter();
         if (vrswToWithdraw > 0) {
             SafeERC20.safeTransfer(IERC20(vrswToken), who, vrswToWithdraw);
-            //gVrswToken.burn(who, vrswToWithdraw);
+            gVrswToken.burn(who, vrswToWithdraw);
         }
     }
 
