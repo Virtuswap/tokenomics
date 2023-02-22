@@ -3,6 +3,8 @@
 pragma solidity ^0.8.0;
 
 interface IvStakerFactory {
+    function stakers(address staker) external returns (address);
+
     function createPoolStaker(address lpToken) external returns (address);
 
     function getPoolStaker(address lpToken) external view returns (address);

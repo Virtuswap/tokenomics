@@ -11,7 +11,11 @@ contract gVrsw {
     uint256 public totalSupply;
 
     event Transfer(address indexed from, address indexed to, uint256 value);
-    event Approval(address indexed owner, address indexed spender, uint256 value);
+    event Approval(
+        address indexed owner,
+        address indexed spender,
+        uint256 value
+    );
 
     constructor(address _minter) {
         minter = _minter;

@@ -8,7 +8,7 @@ import './interfaces/IvStakerFactory.sol';
 import './types.sol';
 
 contract vStakerFactory is IvStakerFactory {
-    mapping(address => address) public stakers;
+    mapping(address => address) public override stakers;
     address[] public allStakers;
 
     address public override admin;
@@ -16,16 +16,18 @@ contract vStakerFactory is IvStakerFactory {
 
     address public immutable vrswToken;
     address public immutable gVrswToken;
+    address public immutable minter;
 
     modifier onlyAdmin() {
         require(msg.sender == admin, 'OA');
         _;
     }
 
-    constructor(address _vrswToken, address _gVrswToken) {
+    constructor(address _vrswToken, address _gVrswToken, address _minter) {
         admin = msg.sender;
         vrswToken = _vrswToken;
         gVrswToken = _gVrswToken;
+        minter = _minter;
     }
 
     function getPoolStaker(
@@ -40,7 +42,7 @@ contract vStakerFactory is IvStakerFactory {
         require(_lpToken != address(0), 'zero address');
         require(stakers[_lpToken] == address(0), 'staker exists');
 
-        staker = address(new vStaker(_lpToken, vrswToken, gVrswToken));
+        staker = address(new vStaker(_lpToken, vrswToken, gVrswToken, minter));
         stakers[_lpToken] = staker;
         allStakers.push(staker);
     }

@@ -10,10 +10,9 @@ import './types.sol';
 import './Vrsw.sol';
 import './GVrsw.sol';
 import './interfaces/IvStaker.sol';
+import './interfaces/IvMinter.sol';
 
 contract vStaker is IvStaker {
-    SD59x18 public constant V = SD59x18.wrap(2.3762e18);
-    SD59x18 public constant v = SD59x18.wrap(-7.069557693e9);
     SD59x18 public constant r = SD59x18.wrap(3e9);
     SD59x18 public constant b = SD59x18.wrap(0.01e18);
     SD59x18 public constant alpha = SD59x18.wrap(1e18);
@@ -32,18 +31,24 @@ contract vStaker is IvStaker {
     SD59x18 totalRewardPoints;
     SD59x18 compoundRateGlobal;
     SD59x18 totalVrswAvailable;
-    SD59x18 allocationPointsPct;
     uint256 startTimestamp;
 
     address public immutable lpToken;
     Vrsw public immutable vrswToken;
     gVrsw public immutable gVrswToken;
+    address public immutable minter;
 
-    constructor(address _lpToken, address _vrswToken, address _gVrswToken) {
+    constructor(
+        address _lpToken,
+        address _vrswToken,
+        address _gVrswToken,
+        address _minter
+    ) {
         lpToken = _lpToken;
         vrswToken = Vrsw(_vrswToken);
         gVrswToken = gVrsw(_gVrswToken);
         startTimestamp = block.timestamp;
+        minter = _minter;
     }
 
     function stakeVrsw(uint256 amount) external override {
@@ -252,11 +257,9 @@ contract vStaker is IvStaker {
         }
     }
 
-    function setAllocationPoints(
-        uint256 newAllocationPointsPct
-    ) external override {
+    function setAllocationPoints() external override {
+        require(msg.sender == minter, 'only minter');
         _updateStateBefore();
-        allocationPointsPct = sd(int256(newAllocationPointsPct) * 1e16);
         _updateStateAfter();
     }
 
@@ -321,10 +324,28 @@ contract vStaker is IvStaker {
             SD59x18 _compoundRateGlobal
         )
     {
-        _totalVrswAvailable = _calculateAlgorithmicVrswEmission(ZERO);
-        SD59x18 algoEmissionR = _calculateAlgorithmicVrswEmission(r);
-        SD59x18 deltaCompoundRate = algoEmissionR.sub(compoundRate[msg.sender]);
-        SD59x18 deltaCompoundRateGlobal = algoEmissionR.sub(compoundRateGlobal);
+        _totalVrswAvailable = sd(
+            int256(
+                uint256(
+                    IvMinter(minter).calculateTokensForStaker(address(this))
+                )
+            )
+        );
+        _compoundRateGlobal = sd(
+            int256(
+                uint256(
+                    IvMinter(minter).calculateCompoundRateForStaker(
+                        address(this)
+                    )
+                )
+            )
+        );
+        SD59x18 deltaCompoundRate = _compoundRateGlobal.sub(
+            compoundRate[msg.sender]
+        );
+        SD59x18 deltaCompoundRateGlobal = _compoundRateGlobal.sub(
+            compoundRateGlobal
+        );
         _senderRewardPoints = rewardPoints[msg.sender].add(
             mu[msg.sender].mul(deltaCompoundRate)
         );
@@ -332,7 +353,6 @@ contract vStaker is IvStaker {
             totalMu.mul(deltaCompoundRateGlobal)
         );
         _senderCompoundRate = compoundRate[msg.sender].add(deltaCompoundRate);
-        _compoundRateGlobal = compoundRateGlobal.add(deltaCompoundRateGlobal);
     }
 
     function _updateStateBefore() private {
@@ -366,20 +386,5 @@ contract vStaker is IvStaker {
         SD59x18 muNew = lpStake[msg.sender].pow(alpha).mul(mult.pow(beta));
         totalMu = totalMu.add(muNew.sub(mu[msg.sender]));
         mu[msg.sender] = muNew;
-    }
-
-    function _calculateAlgorithmicVrswEmission(
-        SD59x18 _r
-    ) private view returns (SD59x18 amount) {
-        amount = V
-            .mul(allocationPointsPct)
-            .mul(
-                exp(
-                    _r.add(v).mul(
-                        sd(int256(block.timestamp - startTimestamp) * 1e18)
-                    )
-                ).sub(UNIT)
-            )
-            .div(_r.add(v));
     }
 }
