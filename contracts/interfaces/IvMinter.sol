@@ -3,8 +3,6 @@
 pragma solidity ^0.8.0;
 
 interface IvMinter {
-    function setProjectVestingWallet(address _projectVestingWallet) external;
-
     function newVesting(
         address beneficiary,
         uint256 startTs,

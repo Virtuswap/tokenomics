@@ -20,14 +20,12 @@ contract vMinter is IvMinter, Ownable {
 
     uint128 public constant ALLOCATION_POINTS_FACTOR = 100;
 
-    uint256 lockedBalance;
+    uint256 algorithmicEmissionBalance;
 
     mapping(address => StakerInfo) stakers;
     mapping(address => uint256) allocationPoints;
     uint256 totalAllocationPoints;
     address[] vestingWallets;
-
-    address projectVestingWallet;
 
     address immutable token;
     address immutable stakerFactory;
@@ -41,13 +39,7 @@ contract vMinter is IvMinter, Ownable {
         token = _token;
         stakerFactory = _stakerFactory;
         emissionStartTs = _emissionStartTs;
-        lockedBalance = EmissionMath.TOTAL_ALGO_EMISSION;
-    }
-
-    function setProjectVestingWallet(
-        address _projectVestingWallet
-    ) external override onlyOwner {
-        projectVestingWallet = _projectVestingWallet;
+        algorithmicEmissionBalance = EmissionMath.TOTAL_ALGO_EMISSION;
     }
 
     function newVesting(
@@ -147,7 +139,7 @@ contract vMinter is IvMinter, Ownable {
         );
         stakerInfo.totalTransferred += uint128(amount);
         stakers[msg.sender] = stakerInfo;
-        lockedBalance -= amount;
+        algorithmicEmissionBalance -= amount;
         SafeERC20.safeTransfer(IERC20(token), to, amount);
     }
 
@@ -176,6 +168,9 @@ contract vMinter is IvMinter, Ownable {
     }
 
     function unlockedBalance() public view returns (uint256) {
-        return IERC20(token).balanceOf(address(this)) - lockedBalance;
+        return
+            IERC20(token).balanceOf(address(this)) -
+            algorithmicEmissionBalance -
+            EmissionMath.currentlyLockedForProject(emissionStartTs);
     }
 }

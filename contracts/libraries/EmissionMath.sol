@@ -9,8 +9,18 @@ library EmissionMath {
     SD59x18 public constant v = SD59x18.wrap(-5.821387457e9);
     SD59x18 public constant r = SD59x18.wrap(3e9);
     uint128 public constant TOTAL_ALGO_EMISSION = 300000000;
+    uint128 public constant TOTAL_PROJECT_EMISSION = 700000000;
     uint128 public constant TOTAL_COMPOUND = 434006462;
     uint128 public constant TEN_YEARS = 315532800;
+
+    function currentlyLockedForProject(
+        uint256 _start
+    ) internal view returns (uint256 amount) {
+        amount = block.timestamp - _start >= TEN_YEARS
+            ? 0
+            : ((TEN_YEARS - block.timestamp - _start) *
+                TOTAL_PROJECT_EMISSION) / TEN_YEARS;
+    }
 
     function calculateAlgorithmicEmission(
         uint256 _t0,
@@ -46,7 +56,7 @@ library EmissionMath {
                 ) -
                     (
                         _t0 >= TEN_YEARS
-                            ? TOTAL_ALGO_EMISSION
+                            ? TOTAL_COMPOUND
                             : _calculateEmission(_t0, r)
                     )
         );
