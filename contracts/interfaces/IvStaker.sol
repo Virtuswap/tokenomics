@@ -28,6 +28,4 @@ interface IvStaker {
     function checkLock(address who) external returns (bool isUnlocked);
 
     function withdrawUnlockedVrsw(address who) external;
-
-    function setAllocationPoints() external;
 }

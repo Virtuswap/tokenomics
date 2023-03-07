@@ -76,22 +76,26 @@ contract vMinter is IvMinter, Ownable {
                 'invalid staker'
             );
 
-            // must be called before allocationPoints are actually set
-            IvStaker(_stakers[i]).setAllocationPoints();
-
             newTotalAllocationPoints =
                 newTotalAllocationPoints +
                 _allocationPoints[i] -
                 allocationPoints[_stakers[i]];
             stakerInfo = stakers[_stakers[i]];
             // stakerInfo exists
-            if (stakerInfo.lastUpdated > 0)
+            if (stakerInfo.lastUpdated > 0) {
+                stakerInfo.totalCompoundRate +=
+                    (EmissionMath.calculateCompoundRate(
+                        stakerInfo.lastUpdated - emissionStartTs,
+                        block.timestamp - emissionStartTs
+                    ) * uint128(allocationPoints[_stakers[i]])) /
+                    ALLOCATION_POINTS_FACTOR;
                 stakerInfo.totalAllocated +=
                     (EmissionMath.calculateAlgorithmicEmission(
                         stakerInfo.lastUpdated - emissionStartTs,
                         block.timestamp - emissionStartTs
                     ) * uint128(allocationPoints[_stakers[i]])) /
                     ALLOCATION_POINTS_FACTOR;
+            }
             stakerInfo.lastUpdated = uint128(block.timestamp);
             stakers[_stakers[i]] = stakerInfo;
             allocationPoints[_stakers[i]] = _allocationPoints[i];

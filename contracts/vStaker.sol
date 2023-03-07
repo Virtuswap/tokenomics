@@ -129,6 +129,7 @@ contract vStaker is IvStaker {
         }
     }
 
+    // TODO: add address parameter
     function viewRewards() external view override returns (uint256 rewards) {
         rewards = _calculateAccruedRewards(msg.sender, false);
     }
@@ -255,12 +256,6 @@ contract vStaker is IvStaker {
             SafeERC20.safeTransfer(IERC20(vrswToken), who, vrswToWithdraw);
             gVrswToken.burn(who, vrswToWithdraw);
         }
-    }
-
-    function setAllocationPoints() external override {
-        require(msg.sender == minter, 'only minter');
-        _updateStateBefore();
-        _updateStateAfter();
     }
 
     function _newStakePosition(
