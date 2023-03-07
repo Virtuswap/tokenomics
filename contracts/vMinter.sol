@@ -27,9 +27,9 @@ contract vMinter is IvMinter, Ownable {
     uint256 totalAllocationPoints;
     address[] vestingWallets;
 
-    address immutable token;
-    address immutable stakerFactory;
-    uint256 immutable emissionStartTs;
+    address public immutable token;
+    address public immutable stakerFactory;
+    uint256 public immutable emissionStartTs;
 
     constructor(
         address _token,

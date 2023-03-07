@@ -17,6 +17,8 @@ interface IvMinter {
 
     function arbitraryTransfer(address to, uint256 amount) external;
 
+    function emissionStartTs() external view returns (uint256);
+
     function transferRewards(address to, uint256 amount) external;
 
     function calculateTokensForStaker(

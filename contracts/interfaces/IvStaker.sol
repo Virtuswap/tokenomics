@@ -13,7 +13,7 @@ interface IvStaker {
 
     function claimRewards() external;
 
-    function viewRewards() external view returns (uint256 rewards);
+    function viewRewards(address who) external view returns (uint256 rewards);
 
     function viewStakes() external view returns (Stake[] memory rewards);
 
@@ -25,7 +25,7 @@ interface IvStaker {
 
     function unstakeVrsw(uint256 amount) external;
 
-    function checkLock(address who) external returns (bool isUnlocked);
+    function checkLock(address who) external view returns (bool isUnlocked);
 
     function withdrawUnlockedVrsw(address who) external;
 }
