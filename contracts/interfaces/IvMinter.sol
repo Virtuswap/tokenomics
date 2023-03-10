@@ -15,6 +15,10 @@ interface IvMinter {
         uint256[] calldata allocationPoints
     ) external;
 
+    function setStakerFactory(address _newStakerFactory) external;
+
+    function setToken(address _newToken) external;
+
     function arbitraryTransfer(address to, uint256 amount) external;
 
     function emissionStartTs() external view returns (uint256);

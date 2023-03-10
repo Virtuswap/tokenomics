@@ -8,9 +8,9 @@ library EmissionMath {
     SD59x18 public constant V = SD59x18.wrap(2.07738597911e18);
     SD59x18 public constant v = SD59x18.wrap(-5.821387457e9);
     SD59x18 public constant r = SD59x18.wrap(3e9);
-    uint128 public constant TOTAL_ALGO_EMISSION = 300000000;
-    uint128 public constant TOTAL_PROJECT_EMISSION = 700000000;
-    uint128 public constant TOTAL_COMPOUND = 434006462;
+    uint128 public constant TOTAL_ALGO_EMISSION = 300000000 * 1e18;
+    uint128 public constant TOTAL_PROJECT_EMISSION = 700000000 * 1e18;
+    uint128 public constant TOTAL_COMPOUND = 434006462 * 1e18;
     uint128 public constant TEN_YEARS = 315532800;
 
     function currentlyLockedForProject(
@@ -18,7 +18,7 @@ library EmissionMath {
     ) internal view returns (uint256 amount) {
         amount = block.timestamp - _start >= TEN_YEARS
             ? 0
-            : ((TEN_YEARS - block.timestamp - _start) *
+            : ((_start + TEN_YEARS - block.timestamp) *
                 TOTAL_PROJECT_EMISSION) / TEN_YEARS;
     }
 

@@ -4,6 +4,7 @@ pragma solidity ^0.8.0;
 
 import '@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol';
 import '@openzeppelin/contracts/access/Ownable.sol';
+import '@openzeppelin/contracts/utils/math/Math.sol';
 import './libraries/EmissionMath.sol';
 import './interfaces/IvStakerFactory.sol';
 import './interfaces/IvStaker.sol';
@@ -20,26 +21,31 @@ contract vMinter is IvMinter, Ownable {
 
     uint128 public constant ALLOCATION_POINTS_FACTOR = 100;
 
-    uint256 algorithmicEmissionBalance;
+    uint256 public algorithmicEmissionBalance;
 
-    mapping(address => StakerInfo) stakers;
-    mapping(address => uint256) allocationPoints;
-    uint256 totalAllocationPoints;
-    address[] vestingWallets;
+    mapping(address => StakerInfo) public stakers;
+    mapping(address => uint256) public allocationPoints;
+    uint256 public totalAllocationPoints;
+    address[] public vestingWallets;
 
-    address public immutable token;
-    address public immutable stakerFactory;
+    address public token;
+    address public stakerFactory;
+
     uint256 public immutable emissionStartTs;
 
-    constructor(
-        address _token,
-        address _stakerFactory,
-        uint256 _emissionStartTs
-    ) {
-        token = _token;
-        stakerFactory = _stakerFactory;
+    constructor(uint256 _emissionStartTs) {
         emissionStartTs = _emissionStartTs;
         algorithmicEmissionBalance = EmissionMath.TOTAL_ALGO_EMISSION;
+    }
+
+    function setStakerFactory(
+        address _newStakerFactory
+    ) external override onlyOwner {
+        stakerFactory = _newStakerFactory;
+    }
+
+    function setToken(address _newToken) external override onlyOwner {
+        token = _newToken;
     }
 
     function newVesting(
@@ -51,8 +57,8 @@ contract vMinter is IvMinter, Ownable {
         require(amount <= unlockedBalance(), 'not enough unlocked tokens');
         vestingWallet = address(
             new vVestingWallet(
-                token,
                 beneficiary,
+                token,
                 uint64(startTs),
                 uint64(duration)
             )
@@ -81,22 +87,7 @@ contract vMinter is IvMinter, Ownable {
                 _allocationPoints[i] -
                 allocationPoints[_stakers[i]];
             stakerInfo = stakers[_stakers[i]];
-            // stakerInfo exists
-            if (stakerInfo.lastUpdated > 0) {
-                stakerInfo.totalCompoundRate +=
-                    (EmissionMath.calculateCompoundRate(
-                        stakerInfo.lastUpdated - emissionStartTs,
-                        block.timestamp - emissionStartTs
-                    ) * uint128(allocationPoints[_stakers[i]])) /
-                    ALLOCATION_POINTS_FACTOR;
-                stakerInfo.totalAllocated +=
-                    (EmissionMath.calculateAlgorithmicEmission(
-                        stakerInfo.lastUpdated - emissionStartTs,
-                        block.timestamp - emissionStartTs
-                    ) * uint128(allocationPoints[_stakers[i]])) /
-                    ALLOCATION_POINTS_FACTOR;
-            }
-            stakerInfo.lastUpdated = uint128(block.timestamp);
+            _updateStakerInfo(stakerInfo, allocationPoints[_stakers[i]]);
             stakers[_stakers[i]] = stakerInfo;
             allocationPoints[_stakers[i]] = _allocationPoints[i];
         }
@@ -123,24 +114,15 @@ contract vMinter is IvMinter, Ownable {
             ) == msg.sender,
             'invalid staker'
         );
+
         StakerInfo memory stakerInfo = stakers[msg.sender];
-        stakerInfo.totalAllocated +=
-            (EmissionMath.calculateAlgorithmicEmission(
-                stakerInfo.lastUpdated - emissionStartTs,
-                block.timestamp - emissionStartTs
-            ) * uint128(allocationPoints[msg.sender])) /
-            ALLOCATION_POINTS_FACTOR;
-        stakerInfo.totalCompoundRate +=
-            (EmissionMath.calculateCompoundRate(
-                stakerInfo.lastUpdated - emissionStartTs,
-                block.timestamp - emissionStartTs
-            ) * uint128(allocationPoints[msg.sender])) /
-            ALLOCATION_POINTS_FACTOR;
-        stakerInfo.lastUpdated = uint128(block.timestamp);
+        _updateStakerInfo(stakerInfo, allocationPoints[msg.sender]);
+
         require(
             amount <= stakerInfo.totalAllocated - stakerInfo.totalTransferred,
             'not enough tokens'
         );
+
         stakerInfo.totalTransferred += uint128(amount);
         stakers[msg.sender] = stakerInfo;
         algorithmicEmissionBalance -= amount;
@@ -151,24 +133,16 @@ contract vMinter is IvMinter, Ownable {
         address staker
     ) external view override returns (uint256) {
         StakerInfo memory stakerInfo = stakers[staker];
-        return
-            ((stakerInfo.totalAllocated +
-                EmissionMath.calculateAlgorithmicEmission(
-                    stakerInfo.lastUpdated - emissionStartTs,
-                    block.timestamp - emissionStartTs
-                )) * allocationPoints[staker]) / ALLOCATION_POINTS_FACTOR;
+        _updateStakerInfo(stakerInfo, allocationPoints[staker]);
+        return stakerInfo.totalAllocated;
     }
 
     function calculateCompoundRateForStaker(
         address staker
     ) external view override returns (uint256) {
         StakerInfo memory stakerInfo = stakers[staker];
-        return
-            ((stakerInfo.totalCompoundRate +
-                EmissionMath.calculateCompoundRate(
-                    stakerInfo.lastUpdated - emissionStartTs,
-                    block.timestamp - emissionStartTs
-                )) * allocationPoints[staker]) / ALLOCATION_POINTS_FACTOR;
+        _updateStakerInfo(stakerInfo, allocationPoints[staker]);
+        return stakerInfo.totalCompoundRate;
     }
 
     function unlockedBalance() public view returns (uint256) {
@@ -176,5 +150,28 @@ contract vMinter is IvMinter, Ownable {
             IERC20(token).balanceOf(address(this)) -
             algorithmicEmissionBalance -
             EmissionMath.currentlyLockedForProject(emissionStartTs);
+    }
+
+    function _updateStakerInfo(
+        StakerInfo memory stakerInfo,
+        uint256 _allocationPoints
+    ) private view {
+        if (stakerInfo.lastUpdated > 0) {
+            stakerInfo.totalCompoundRate +=
+                (EmissionMath.calculateCompoundRate(
+                    stakerInfo.lastUpdated - emissionStartTs,
+                    block.timestamp - emissionStartTs
+                ) * uint128(_allocationPoints)) /
+                ALLOCATION_POINTS_FACTOR;
+            stakerInfo.totalAllocated +=
+                (EmissionMath.calculateAlgorithmicEmission(
+                    stakerInfo.lastUpdated - emissionStartTs,
+                    block.timestamp - emissionStartTs
+                ) * uint128(_allocationPoints)) /
+                ALLOCATION_POINTS_FACTOR;
+        }
+        stakerInfo.lastUpdated = uint128(
+            Math.max(block.timestamp, emissionStartTs)
+        );
     }
 }
