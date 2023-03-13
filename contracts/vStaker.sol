@@ -7,8 +7,6 @@ import '@openzeppelin/contracts/token/ERC20/IERC20.sol';
 import '@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol';
 import '@openzeppelin/contracts/utils/math/Math.sol';
 import './types.sol';
-import './Vrsw.sol';
-import './GVrsw.sol';
 import './interfaces/IvStaker.sol';
 import './interfaces/IvMinter.sol';
 
@@ -27,26 +25,19 @@ contract vStaker is IvStaker {
     mapping(address => Stake[]) public stakes;
     mapping(address => uint256) public firstUnlockTs;
 
-    SD59x18 totalMu;
-    SD59x18 totalRewardPoints;
-    SD59x18 compoundRateGlobal;
-    SD59x18 totalVrswAvailable;
+    SD59x18 public totalMu;
+    SD59x18 public totalRewardPoints;
+    SD59x18 public compoundRateGlobal;
+    SD59x18 public totalVrswAvailable;
 
     address public immutable lpToken;
-    Vrsw public immutable vrswToken;
-    gVrsw public immutable gVrswToken;
     address public immutable minter;
+    address public immutable vrswToken;
 
-    constructor(
-        address _lpToken,
-        address _vrswToken,
-        address _gVrswToken,
-        address _minter
-    ) {
+    constructor(address _lpToken, address _vrswToken, address _minter) {
         lpToken = _lpToken;
-        vrswToken = Vrsw(_vrswToken);
-        gVrswToken = gVrsw(_gVrswToken);
         minter = _minter;
+        vrswToken = _vrswToken;
     }
 
     function stakeVrsw(uint256 amount) external override {
@@ -95,11 +86,15 @@ contract vStaker is IvStaker {
             address(this),
             amount
         );
-        gVrswToken.mint(msg.sender, amount);
+        IvMinter(minter).mintGVrsw(msg.sender, amount);
     }
 
     function stakeLp(uint256 amount) external override {
         require(amount > 0, 'zero amount');
+        require(
+            block.timestamp >= IvMinter(minter).emissionStartTs(),
+            'too early'
+        );
 
         _updateStateBefore(msg.sender);
         lpStake[msg.sender] = lpStake[msg.sender].add(sd(int256(amount)));
@@ -114,6 +109,10 @@ contract vStaker is IvStaker {
     }
 
     function claimRewards() external override {
+        require(
+            block.timestamp >= IvMinter(minter).emissionStartTs(),
+            'too early'
+        );
         _updateStateBefore(msg.sender);
         uint256 amountToClaim = _calculateAccruedRewards(msg.sender, true);
         rewardsClaimed[msg.sender] = rewardsClaimed[msg.sender].add(
@@ -122,11 +121,7 @@ contract vStaker is IvStaker {
         _updateStateAfter(msg.sender);
 
         if (amountToClaim > 0) {
-            SafeERC20.safeTransfer(
-                IERC20(vrswToken),
-                msg.sender,
-                amountToClaim
-            );
+            IvMinter(minter).transferRewards(msg.sender, amountToClaim);
         }
     }
 
@@ -147,6 +142,10 @@ contract vStaker is IvStaker {
 
     function unstakeLp(uint256 amount) external override {
         require(
+            block.timestamp >= IvMinter(minter).emissionStartTs(),
+            'too early'
+        );
+        require(
             int256(amount) <= unwrap(lpStake[msg.sender]) && amount > 0,
             'insufficient amount'
         );
@@ -158,6 +157,10 @@ contract vStaker is IvStaker {
     }
 
     function unstakeVrsw(uint256 amount) external override {
+        require(
+            block.timestamp >= IvMinter(minter).emissionStartTs(),
+            'too early'
+        );
         Stake[] storage senderStakes = stakes[msg.sender];
         require(senderStakes.length > 0, 'no stakes');
         require(
@@ -170,10 +173,14 @@ contract vStaker is IvStaker {
         _updateStateAfter(msg.sender);
 
         SafeERC20.safeTransfer(IERC20(vrswToken), msg.sender, amount);
-        gVrswToken.burn(msg.sender, amount);
+        IvMinter(minter).burnGVrsw(msg.sender, amount);
     }
 
     function lockVrsw(uint256 amount, uint256 lockDuration) external override {
+        require(
+            block.timestamp >= IvMinter(minter).emissionStartTs(),
+            'too early'
+        );
         Stake[] storage senderStakes = stakes[msg.sender];
         if (senderStakes.length == 0) {
             senderStakes.push(Stake(0, 0, ZERO, ZERO));
@@ -192,13 +199,17 @@ contract vStaker is IvStaker {
             address(this),
             amount
         );
-        gVrswToken.mint(msg.sender, amount);
+        IvMinter(minter).mintGVrsw(msg.sender, amount);
     }
 
     function lockStakedVrsw(
         uint256 amount,
         uint256 lockDuration
     ) external override {
+        require(
+            block.timestamp >= IvMinter(minter).emissionStartTs(),
+            'too early'
+        );
         Stake[] storage senderStakes = stakes[msg.sender];
         require(senderStakes.length > 0, 'no stakes');
         require(
@@ -222,6 +233,10 @@ contract vStaker is IvStaker {
     }
 
     function withdrawUnlockedVrsw(address who) external override {
+        require(
+            block.timestamp >= IvMinter(minter).emissionStartTs(),
+            'too early'
+        );
         _updateStateBefore(who);
         Stake[] storage userStakes = stakes[who];
         uint256 nextUnlockTs = (1 << 256) - 1;
@@ -248,7 +263,7 @@ contract vStaker is IvStaker {
         _updateStateAfter(who);
         if (vrswToWithdraw > 0) {
             SafeERC20.safeTransfer(IERC20(vrswToken), who, vrswToWithdraw);
-            gVrswToken.burn(who, vrswToWithdraw);
+            IvMinter(minter).burnGVrsw(msg.sender, vrswToWithdraw);
         }
     }
 
@@ -268,17 +283,18 @@ contract vStaker is IvStaker {
                             -int256(
                                 block.timestamp -
                                     IvMinter(minter).emissionStartTs()
-                            )
+                            ) * 1e18
                         )
                     )
                 ),
                 sd(int256(amount))
             )
         );
-        firstUnlockTs[who] = Math.min(
-            firstUnlockTs[who],
-            block.timestamp + lockDuration
-        );
+        uint256 unlockTs = block.timestamp + lockDuration;
+        uint256 _firstUnlockTs = firstUnlockTs[who];
+        firstUnlockTs[who] = _firstUnlockTs == 0
+            ? unlockTs
+            : Math.min(_firstUnlockTs, unlockTs);
     }
 
     function _calculateAccruedRewards(

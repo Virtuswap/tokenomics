@@ -24,16 +24,15 @@ describe('vStaker: lp tokens', function () {
         accounts = await ethers.getSigners();
         await deployments.fixture(['all']);
         stakerFactory = await ethers.getContract('stakerFactory');
-        vrsw = await ethers.getContract('vrswToken');
-        gVrsw = await ethers.getContract('gVrswToken');
         token0 = await ethers.getContract('Token0');
         minter = await ethers.getContract('minter');
+        vrsw = await ethers.getContractAt('Vrsw', await minter.vrsw());
+        gVrsw = await ethers.getContractAt('GVrsw', await minter.gVrsw());
         await stakerFactory.createPoolStaker(token0.address);
         const stakerAddr = await stakerFactory.getPoolStaker(token0.address);
         staker = await ethers.getContractAt('vStaker', stakerAddr);
         await token0.approve(staker.address, ethers.utils.parseEther('1000'));
         await vrsw.approve(staker.address, ethers.utils.parseEther('1000'));
-        await minter.setToken(vrsw.address);
         await minter.setStakerFactory(stakerFactory.address);
         await minter.setAllocationPoints([staker.address], ['100']);
         await minter.arbitraryTransfer(
@@ -167,12 +166,18 @@ describe('vStaker: lp tokens', function () {
         const amount = ethers.utils.parseEther('10');
         const accountBalanceBefore = await vrsw.balanceOf(accounts[0].address);
         const contractBalanceBefore = await vrsw.balanceOf(staker.address);
+        const gVrswAccountBalanceBefore = await gVrsw.balanceOf(
+            accounts[0].address
+        );
         const muBefore = await staker.mu(accounts[0].address);
         const totalMuBefore = await staker.totalMu();
         const totalVrswBefore = await staker.totalVrswAvailable();
         const compoundRateGlobalBefore = await staker.compoundRateGlobal();
         const totalRewardPointsBefore = await staker.totalRewardPoints();
         await staker.stakeVrsw(amount);
+        const gVrswAccountBalanceAfter = await gVrsw.balanceOf(
+            accounts[0].address
+        );
         const totalRewardPointsAfter = await staker.totalRewardPoints();
         const accountBalanceAfter = await vrsw.balanceOf(accounts[0].address);
         const contractBalanceAfter = await vrsw.balanceOf(staker.address);
@@ -180,6 +185,9 @@ describe('vStaker: lp tokens', function () {
 
         expect(accountBalanceAfter).to.be.equal(
             accountBalanceBefore.sub(amount)
+        );
+        expect(gVrswAccountBalanceAfter).to.be.equal(
+            gVrswAccountBalanceBefore.add(amount)
         );
         expect(contractBalanceAfter).to.be.equal(
             contractBalanceBefore.add(amount)
@@ -212,14 +220,23 @@ describe('vStaker: lp tokens', function () {
         const totalVrswBefore = await staker.totalVrswAvailable();
         const compoundRateGlobalBefore = await staker.compoundRateGlobal();
         const totalRewardPointsBefore = await staker.totalRewardPoints();
+        const gVrswAccountBalanceBefore = await gVrsw.balanceOf(
+            accounts[0].address
+        );
         await staker.stakeVrsw(amount);
         const totalRewardPointsAfter = await staker.totalRewardPoints();
         const accountBalanceAfter = await vrsw.balanceOf(accounts[0].address);
         const contractBalanceAfter = await vrsw.balanceOf(staker.address);
         const compoundRateGlobalAfter = await staker.compoundRateGlobal();
+        const gVrswAccountBalanceAfter = await gVrsw.balanceOf(
+            accounts[0].address
+        );
 
         expect(accountBalanceAfter).to.be.equal(
             accountBalanceBefore.sub(amount)
+        );
+        expect(gVrswAccountBalanceAfter).to.be.equal(
+            gVrswAccountBalanceBefore.add(amount)
         );
         expect(contractBalanceAfter).to.be.equal(
             contractBalanceBefore.add(amount)
@@ -251,14 +268,23 @@ describe('vStaker: lp tokens', function () {
         const totalVrswBefore = await staker.totalVrswAvailable();
         const compoundRateGlobalBefore = await staker.compoundRateGlobal();
         const totalRewardPointsBefore = await staker.totalRewardPoints();
+        const gVrswAccountBalanceBefore = await gVrsw.balanceOf(
+            accounts[0].address
+        );
         await staker.unstakeVrsw(amount);
         const totalRewardPointsAfter = await staker.totalRewardPoints();
         const accountBalanceAfter = await vrsw.balanceOf(accounts[0].address);
         const contractBalanceAfter = await vrsw.balanceOf(staker.address);
         const compoundRateGlobalAfter = await staker.compoundRateGlobal();
+        const gVrswAccountBalanceAfter = await gVrsw.balanceOf(
+            accounts[0].address
+        );
 
         expect(accountBalanceAfter).to.be.equal(
             accountBalanceBefore.add(amount)
+        );
+        expect(gVrswAccountBalanceAfter).to.be.equal(
+            gVrswAccountBalanceBefore.sub(amount)
         );
         expect(contractBalanceAfter).to.be.equal(
             contractBalanceBefore.sub(amount)
@@ -299,14 +325,23 @@ describe('vStaker: lp tokens', function () {
         const totalVrswBefore = await staker.totalVrswAvailable();
         const compoundRateGlobalBefore = await staker.compoundRateGlobal();
         const totalRewardPointsBefore = await staker.totalRewardPoints();
+        const gVrswAccountBalanceBefore = await gVrsw.balanceOf(
+            accounts[0].address
+        );
         await staker.lockVrsw(amount, '10');
         const totalRewardPointsAfter = await staker.totalRewardPoints();
         const accountBalanceAfter = await vrsw.balanceOf(accounts[0].address);
         const contractBalanceAfter = await vrsw.balanceOf(staker.address);
         const compoundRateGlobalAfter = await staker.compoundRateGlobal();
+        const gVrswAccountBalanceAfter = await gVrsw.balanceOf(
+            accounts[0].address
+        );
 
         expect(accountBalanceAfter).to.be.equal(
             accountBalanceBefore.sub(amount)
+        );
+        expect(gVrswAccountBalanceAfter).to.be.equal(
+            gVrswAccountBalanceBefore.add(amount)
         );
         expect(contractBalanceAfter).to.be.equal(
             contractBalanceBefore.add(amount)
@@ -412,13 +447,20 @@ describe('vStaker: lp tokens', function () {
         const compoundRateGlobalBefore = await staker.compoundRateGlobal();
         const totalRewardPointsBefore = await staker.totalRewardPoints();
         expect(await staker.checkLock(accounts[0].address)).to.equal(true);
+        const gVrswAccountBalanceBefore = await gVrsw.balanceOf(
+            accounts[0].address
+        );
         await staker.withdrawUnlockedVrsw(accounts[0].address);
         const totalRewardPointsAfter = await staker.totalRewardPoints();
         const accountBalanceAfter = await vrsw.balanceOf(accounts[0].address);
         const contractBalanceAfter = await vrsw.balanceOf(staker.address);
         const compoundRateGlobalAfter = await staker.compoundRateGlobal();
+        const gVrswAccountBalanceAfter = await gVrsw.balanceOf(
+            accounts[0].address
+        );
 
         expect(accountBalanceAfter).to.be.above(accountBalanceBefore);
+        expect(gVrswAccountBalanceAfter).to.be.below(gVrswAccountBalanceBefore);
         expect(contractBalanceAfter).to.be.below(contractBalanceBefore);
         expect(await staker.mu(accounts[0].address)).to.below(muBefore);
         expect(await staker.totalMu()).to.below(totalMuBefore);

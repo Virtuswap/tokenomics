@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
 
-contract gVrsw {
+contract GVrsw {
     string public constant name = 'Governance Virtuswap';
     string public constant symbol = 'gVRSW';
 

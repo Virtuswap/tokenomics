@@ -15,7 +15,6 @@ contract vStakerFactory is IvStakerFactory {
     address public override pendingAdmin;
 
     address public immutable vrswToken;
-    address public immutable gVrswToken;
     address public immutable minter;
 
     modifier onlyAdmin() {
@@ -23,10 +22,9 @@ contract vStakerFactory is IvStakerFactory {
         _;
     }
 
-    constructor(address _vrswToken, address _gVrswToken, address _minter) {
+    constructor(address _vrswToken, address _minter) {
         admin = msg.sender;
         vrswToken = _vrswToken;
-        gVrswToken = _gVrswToken;
         minter = _minter;
     }
 
@@ -43,7 +41,7 @@ contract vStakerFactory is IvStakerFactory {
         require(_lpToken != address(0), 'zero address');
         require(stakers[_lpToken] == address(0), 'staker exists');
 
-        staker = address(new vStaker(_lpToken, vrswToken, gVrswToken, minter));
+        staker = address(new vStaker(_lpToken, vrswToken, minter));
         stakers[_lpToken] = staker;
         allStakers.push(staker);
     }

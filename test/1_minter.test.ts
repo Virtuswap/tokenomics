@@ -23,9 +23,9 @@ describe('vMinter 1', function () {
         await deployments.fixture(['all']);
         stakerFactory = await ethers.getContract('stakerFactory');
         minter = await ethers.getContract('minter');
-        vrsw = await ethers.getContract('vrswToken');
-        await minter.setToken(vrsw.address);
+        vrsw = await ethers.getContractAt('Vrsw', await minter.vrsw());
         await minter.setStakerFactory(stakerFactory.address);
+        await time.setNextBlockTimestamp((await time.latest()) + 2);
     });
 
     it('arbitraryTransfer works', async () => {
@@ -118,7 +118,6 @@ describe('vMinter 1', function () {
 
 describe('vMinter: allocation points', function () {
     let stakerFactory: VStakerFactory;
-    let vrsw: Vrsw;
     let token0: Token0;
     let token1: Token1;
     let token2: Token2;
@@ -133,7 +132,6 @@ describe('vMinter: allocation points', function () {
         await deployments.fixture(['all']);
         stakerFactory = await ethers.getContract('stakerFactory');
         minter = await ethers.getContract('minter');
-        vrsw = await ethers.getContract('vrswToken');
         token0 = await ethers.getContract('Token0');
         token1 = await ethers.getContract('Token1');
         token2 = await ethers.getContract('Token2');
@@ -146,7 +144,6 @@ describe('vMinter: allocation points', function () {
         staker1 = await ethers.getContractAt('vStaker', staker1Addr);
         staker2 = await ethers.getContractAt('vStaker', staker2Addr);
         staker3 = await ethers.getContractAt('vStaker', staker3Addr);
-        await minter.setToken(vrsw.address);
         await minter.setStakerFactory(stakerFactory.address);
     });
 

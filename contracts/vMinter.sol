@@ -10,6 +10,8 @@ import './interfaces/IvStakerFactory.sol';
 import './interfaces/IvStaker.sol';
 import './interfaces/IvMinter.sol';
 import './vVestingWallet.sol';
+import './Vrsw.sol';
+import './GVrsw.sol';
 
 contract vMinter is IvMinter, Ownable {
     struct StakerInfo {
@@ -28,7 +30,8 @@ contract vMinter is IvMinter, Ownable {
     uint256 public totalAllocationPoints;
     address[] public vestingWallets;
 
-    address public token;
+    Vrsw public vrsw;
+    GVrsw public gVrsw;
     address public stakerFactory;
 
     uint256 public immutable emissionStartTs;
@@ -36,6 +39,8 @@ contract vMinter is IvMinter, Ownable {
     constructor(uint256 _emissionStartTs) {
         emissionStartTs = _emissionStartTs;
         algorithmicEmissionBalance = EmissionMath.TOTAL_ALGO_EMISSION;
+        vrsw = new Vrsw(address(this));
+        gVrsw = new GVrsw(address(this));
     }
 
     function setStakerFactory(
@@ -44,33 +49,32 @@ contract vMinter is IvMinter, Ownable {
         stakerFactory = _newStakerFactory;
     }
 
-    function setToken(address _newToken) external override onlyOwner {
-        token = _newToken;
-    }
-
     function newVesting(
         address beneficiary,
         uint256 startTs,
         uint256 duration,
         uint256 amount
     ) external override onlyOwner returns (address vestingWallet) {
+        require(block.timestamp >= emissionStartTs, 'too early');
         require(amount <= unlockedBalance(), 'not enough unlocked tokens');
         vestingWallet = address(
             new vVestingWallet(
                 beneficiary,
-                token,
+                address(vrsw),
                 uint64(startTs),
                 uint64(duration)
             )
         );
         vestingWallets.push(vestingWallet);
-        SafeERC20.safeTransfer(IERC20(token), vestingWallet, amount);
+        SafeERC20.safeTransfer(IERC20(vrsw), vestingWallet, amount);
     }
 
     function setAllocationPoints(
         address[] calldata _stakers,
         uint256[] calldata _allocationPoints
     ) external override onlyOwner {
+        require(block.timestamp >= emissionStartTs, 'too early');
+
         uint256 newTotalAllocationPoints = totalAllocationPoints;
         StakerInfo memory stakerInfo;
         address _stakerFactory = stakerFactory;
@@ -102,11 +106,13 @@ contract vMinter is IvMinter, Ownable {
         address to,
         uint256 amount
     ) external override onlyOwner {
+        require(block.timestamp >= emissionStartTs, 'too early');
         require(amount <= unlockedBalance(), 'not enough unlocked tokens');
-        SafeERC20.safeTransfer(IERC20(token), to, amount);
+        SafeERC20.safeTransfer(IERC20(vrsw), to, amount);
     }
 
     function transferRewards(address to, uint256 amount) external override {
+        require(block.timestamp >= emissionStartTs, 'too early');
         require(amount > 0, 'zero amount');
         require(
             IvStakerFactory(stakerFactory).stakers(
@@ -126,7 +132,29 @@ contract vMinter is IvMinter, Ownable {
         stakerInfo.totalTransferred += uint128(amount);
         stakers[msg.sender] = stakerInfo;
         algorithmicEmissionBalance -= amount;
-        SafeERC20.safeTransfer(IERC20(token), to, amount);
+        SafeERC20.safeTransfer(IERC20(vrsw), to, amount);
+    }
+
+    function mintGVrsw(address to, uint256 amount) external override {
+        require(amount > 0, 'zero amount');
+        require(
+            IvStakerFactory(stakerFactory).stakers(
+                IvStaker(msg.sender).lpToken()
+            ) == msg.sender,
+            'invalid staker'
+        );
+        gVrsw.mint(to, amount);
+    }
+
+    function burnGVrsw(address to, uint256 amount) external override {
+        require(amount > 0, 'zero amount');
+        require(
+            IvStakerFactory(stakerFactory).stakers(
+                IvStaker(msg.sender).lpToken()
+            ) == msg.sender,
+            'invalid staker'
+        );
+        gVrsw.burn(to, amount);
     }
 
     function calculateTokensForStaker(
@@ -147,7 +175,7 @@ contract vMinter is IvMinter, Ownable {
 
     function unlockedBalance() public view returns (uint256) {
         return
-            IERC20(token).balanceOf(address(this)) -
+            IERC20(vrsw).balanceOf(address(this)) -
             algorithmicEmissionBalance -
             EmissionMath.currentlyLockedForProject(emissionStartTs);
     }

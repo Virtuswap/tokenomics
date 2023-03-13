@@ -17,13 +17,15 @@ interface IvMinter {
 
     function setStakerFactory(address _newStakerFactory) external;
 
-    function setToken(address _newToken) external;
-
     function arbitraryTransfer(address to, uint256 amount) external;
 
     function emissionStartTs() external view returns (uint256);
 
     function transferRewards(address to, uint256 amount) external;
+
+    function mintGVrsw(address to, uint256 amount) external;
+
+    function burnGVrsw(address to, uint256 amount) external;
 
     function calculateTokensForStaker(
         address staker

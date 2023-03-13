@@ -16,24 +16,16 @@ const deployCore: DeployFunction = async function (
         log: true,
     });
 
-    const vrswToken = await deploy('vrswToken', {
-        from: deployer,
-        contract: 'Vrsw',
-        args: [minter.address],
-        log: true,
-    });
-
-    const gVrswToken = await deploy('gVrswToken', {
-        from: deployer,
-        contract: 'gVrsw',
-        args: [minter.address],
-        log: true,
-    });
+    const minterContract = await hre.ethers.getContractAt(
+        'vMinter',
+        minter.address
+    );
+    const vrswTokenAddress = await minterContract.vrsw();
 
     await deploy('stakerFactory', {
         from: deployer,
         contract: 'vStakerFactory',
-        args: [vrswToken.address, gVrswToken.address, minter.address],
+        args: [vrswTokenAddress, minter.address],
         log: true,
     });
 };
