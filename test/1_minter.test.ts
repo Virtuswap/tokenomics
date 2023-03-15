@@ -152,7 +152,6 @@ describe('vMinter: allocation points', function () {
             [staker1.address, staker2.address],
             ['10', '90']
         );
-        expect(await minter.totalAllocationPoints()).to.equal('100');
         const stake1 = await minter.stakers(staker1.address);
         const stake2 = await minter.stakers(staker2.address);
         const stake3 = await minter.stakers(staker3.address);
@@ -226,15 +225,6 @@ describe('vMinter: allocation points', function () {
                     ['0', '0', '100']
                 )
         ).to.revertedWith('Ownable: caller is not the owner');
-    });
-
-    it('setAllocationPoints fails when total allocation points are more than 100%', async () => {
-        await expect(
-            minter.setAllocationPoints(
-                [staker1.address, staker2.address, staker3.address],
-                ['50', '40', '11']
-            )
-        ).to.revertedWith('total allocation points > 100%');
     });
 
     it('setAllocationPoints fails when called not for staker', async () => {

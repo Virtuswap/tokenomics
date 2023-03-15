@@ -27,7 +27,6 @@ contract vMinter is IvMinter, Ownable {
 
     mapping(address => StakerInfo) public stakers;
     mapping(address => uint256) public allocationPoints;
-    uint256 public totalAllocationPoints;
     address[] public vestingWallets;
 
     Vrsw public vrsw;
@@ -75,7 +74,7 @@ contract vMinter is IvMinter, Ownable {
     ) external override onlyOwner {
         require(block.timestamp >= emissionStartTs, 'too early');
 
-        uint256 newTotalAllocationPoints = totalAllocationPoints;
+        uint256 totalAllocationPoints;
         StakerInfo memory stakerInfo;
         address _stakerFactory = stakerFactory;
         for (uint256 i = 0; i < _stakers.length; ++i) {
@@ -85,21 +84,17 @@ contract vMinter is IvMinter, Ownable {
                 ) == _stakers[i],
                 'invalid staker'
             );
+            totalAllocationPoints += _allocationPoints[i];
+        }
 
-            newTotalAllocationPoints =
-                newTotalAllocationPoints +
-                _allocationPoints[i] -
-                allocationPoints[_stakers[i]];
+        for (uint256 i = 0; i < _stakers.length; ++i) {
             stakerInfo = stakers[_stakers[i]];
             _updateStakerInfo(stakerInfo, allocationPoints[_stakers[i]]);
             stakers[_stakers[i]] = stakerInfo;
-            allocationPoints[_stakers[i]] = _allocationPoints[i];
+            allocationPoints[_stakers[i]] =
+                (_allocationPoints[i] * ALLOCATION_POINTS_FACTOR) /
+                totalAllocationPoints;
         }
-        require(
-            newTotalAllocationPoints <= ALLOCATION_POINTS_FACTOR,
-            'total allocation points > 100%'
-        );
-        totalAllocationPoints = newTotalAllocationPoints;
     }
 
     function arbitraryTransfer(

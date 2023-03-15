@@ -11,7 +11,7 @@ import {
 } from '../typechain-types';
 import { time } from '@nomicfoundation/hardhat-network-helpers';
 
-describe('vStaker: lp tokens', function () {
+describe('vStaker', function () {
     let stakerFactory: VStakerFactory;
     let vrsw: Vrsw;
     let gVrsw: GVrsw;
