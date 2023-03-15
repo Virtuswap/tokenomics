@@ -72,8 +72,6 @@ contract vMinter is IvMinter, Ownable {
         address[] calldata _stakers,
         uint256[] calldata _allocationPoints
     ) external override onlyOwner {
-        require(block.timestamp >= emissionStartTs, 'too early');
-
         uint256 totalAllocationPoints;
         StakerInfo memory stakerInfo;
         address _stakerFactory = stakerFactory;
@@ -179,7 +177,10 @@ contract vMinter is IvMinter, Ownable {
         StakerInfo memory stakerInfo,
         uint256 _allocationPoints
     ) private view {
-        if (stakerInfo.lastUpdated > 0) {
+        if (
+            stakerInfo.lastUpdated > 0 &&
+            block.timestamp > stakerInfo.lastUpdated
+        ) {
             stakerInfo.totalCompoundRate +=
                 (EmissionMath.calculateCompoundRate(
                     stakerInfo.lastUpdated - emissionStartTs,
