@@ -9,14 +9,9 @@ import '@openzeppelin/contracts/utils/math/Math.sol';
 import './types.sol';
 import './interfaces/IvStaker.sol';
 import './interfaces/IvMinter.sol';
+import './interfaces/IvTokenomicsParams.sol';
 
 contract vStaker is IvStaker {
-    SD59x18 public constant r = SD59x18.wrap(3e9);
-    SD59x18 public constant b = SD59x18.wrap(0.01e18);
-    SD59x18 public constant alpha = SD59x18.wrap(1e18);
-    SD59x18 public constant beta = SD59x18.wrap(0.5e18);
-    SD59x18 public constant gamma = SD59x18.wrap(1e18);
-
     mapping(address => SD59x18) public lpStake;
     mapping(address => SD59x18) public compoundRate;
     mapping(address => SD59x18) public mu;
@@ -33,11 +28,18 @@ contract vStaker is IvStaker {
     address public immutable lpToken;
     address public immutable minter;
     address public immutable vrswToken;
+    address public immutable tokenomicsParams;
 
-    constructor(address _lpToken, address _vrswToken, address _minter) {
+    constructor(
+        address _lpToken,
+        address _vrswToken,
+        address _minter,
+        address _tokenomicsParams
+    ) {
         lpToken = _lpToken;
         minter = _minter;
         vrswToken = _vrswToken;
+        tokenomicsParams = _tokenomicsParams;
     }
 
     function stakeVrsw(uint256 amount) external override {
@@ -65,7 +67,7 @@ contract vStaker is IvStaker {
                 .add(
                     sd(int256(amount)).mul(
                         exp(
-                            r.mul(
+                            IvTokenomicsParams(tokenomicsParams).r().mul(
                                 sd(
                                     -int256(block.timestamp - emissionStartTs) *
                                         1e18
@@ -278,7 +280,7 @@ contract vStaker is IvStaker {
                 block.timestamp,
                 lockDuration,
                 exp(
-                    r.mul(
+                    IvTokenomicsParams(tokenomicsParams).r().mul(
                         sd(
                             -int256(
                                 block.timestamp -
@@ -387,9 +389,9 @@ contract vStaker is IvStaker {
             mult = mult.add(
                 senderStakes[i].amount.mul(senderStakes[i].discountFactor).mul(
                     UNIT.add(
-                        b.mul(
+                        IvTokenomicsParams(tokenomicsParams).b().mul(
                             sd(int256(senderStakes[i].lockDuration) * 1e18).pow(
-                                gamma
+                                IvTokenomicsParams(tokenomicsParams).gamma()
                             )
                         )
                     )
@@ -397,7 +399,9 @@ contract vStaker is IvStaker {
             );
         }
         mult = mult.add(UNIT);
-        SD59x18 muNew = lpStake[who].pow(alpha).mul(mult.pow(beta));
+        SD59x18 muNew = lpStake[who]
+            .pow(IvTokenomicsParams(tokenomicsParams).alpha())
+            .mul(mult.pow(IvTokenomicsParams(tokenomicsParams).beta()));
         totalMu = totalMu.add(muNew.sub(mu[who]));
         mu[who] = muNew;
     }

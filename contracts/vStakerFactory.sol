@@ -16,16 +16,22 @@ contract vStakerFactory is IvStakerFactory {
 
     address public immutable vrswToken;
     address public immutable minter;
+    address public immutable tokenomicsParams;
 
     modifier onlyAdmin() {
         require(msg.sender == admin, 'OA');
         _;
     }
 
-    constructor(address _vrswToken, address _minter) {
+    constructor(
+        address _vrswToken,
+        address _minter,
+        address _tokenomicsParams
+    ) {
         admin = msg.sender;
         vrswToken = _vrswToken;
         minter = _minter;
+        tokenomicsParams = _tokenomicsParams;
     }
 
     function getPoolStaker(
@@ -41,7 +47,9 @@ contract vStakerFactory is IvStakerFactory {
         require(_lpToken != address(0), 'zero address');
         require(stakers[_lpToken] == address(0), 'staker exists');
 
-        staker = address(new vStaker(_lpToken, vrswToken, minter));
+        staker = address(
+            new vStaker(_lpToken, vrswToken, minter, tokenomicsParams)
+        );
         stakers[_lpToken] = staker;
         allStakers.push(staker);
     }

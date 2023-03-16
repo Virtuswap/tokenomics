@@ -9,6 +9,7 @@ import './libraries/EmissionMath.sol';
 import './interfaces/IvStakerFactory.sol';
 import './interfaces/IvStaker.sol';
 import './interfaces/IvMinter.sol';
+import './interfaces/IvTokenomicsParams.sol';
 import './vVestingWallet.sol';
 import './Vrsw.sol';
 import './GVrsw.sol';
@@ -34,9 +35,11 @@ contract vMinter is IvMinter, Ownable {
     address public stakerFactory;
 
     uint256 public immutable emissionStartTs;
+    address public immutable tokenomicsParams;
 
-    constructor(uint256 _emissionStartTs) {
+    constructor(uint256 _emissionStartTs, address _tokenomicsParams) {
         emissionStartTs = _emissionStartTs;
+        tokenomicsParams = _tokenomicsParams;
         algorithmicEmissionBalance = EmissionMath.TOTAL_ALGO_EMISSION;
         vrsw = new Vrsw(address(this));
         gVrsw = new GVrsw(address(this));
@@ -184,7 +187,8 @@ contract vMinter is IvMinter, Ownable {
             stakerInfo.totalCompoundRate +=
                 (EmissionMath.calculateCompoundRate(
                     stakerInfo.lastUpdated - emissionStartTs,
-                    block.timestamp - emissionStartTs
+                    block.timestamp - emissionStartTs,
+                    IvTokenomicsParams(tokenomicsParams).r()
                 ) * uint128(_allocationPoints)) /
                 ALLOCATION_POINTS_FACTOR;
             stakerInfo.totalAllocated +=

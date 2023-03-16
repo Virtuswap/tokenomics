@@ -9,10 +9,17 @@ const deployCore: DeployFunction = async function (
     const { deployer } = await getNamedAccounts();
     const { deploy } = deployments;
 
+    const tokenomicsParams = await deploy('tokenomicsParams', {
+        from: deployer,
+        contract: 'vTokenomicsParams',
+        args: [],
+        log: true,
+    });
+
     const minter = await deploy('minter', {
         from: deployer,
         contract: 'vMinter',
-        args: [await time.latest()],
+        args: [await time.latest(), tokenomicsParams.address],
         log: true,
     });
 
@@ -25,7 +32,7 @@ const deployCore: DeployFunction = async function (
     await deploy('stakerFactory', {
         from: deployer,
         contract: 'vStakerFactory',
-        args: [vrswTokenAddress, minter.address],
+        args: [vrswTokenAddress, minter.address, tokenomicsParams.address],
         log: true,
     });
 };
