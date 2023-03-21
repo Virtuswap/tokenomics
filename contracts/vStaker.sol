@@ -89,6 +89,7 @@ contract vStaker is IvStaker {
             amount
         );
         IvMinter(minter).mintGVrsw(msg.sender, amount);
+        emit StakeVrsw(msg.sender, amount);
     }
 
     function stakeLp(uint256 amount) external override {
@@ -108,6 +109,7 @@ contract vStaker is IvStaker {
             address(this),
             amount
         );
+        emit StakeLp(msg.sender, amount);
     }
 
     function claimRewards() external override {
@@ -125,6 +127,7 @@ contract vStaker is IvStaker {
         if (amountToClaim > 0) {
             IvMinter(minter).transferRewards(msg.sender, amountToClaim);
         }
+        emit RewardsClaimed(msg.sender, amountToClaim);
     }
 
     function viewRewards(
@@ -156,6 +159,8 @@ contract vStaker is IvStaker {
         _updateStateAfter(msg.sender);
 
         SafeERC20.safeTransfer(IERC20(lpToken), msg.sender, amount);
+
+        emit UnstakeLp(msg.sender, amount);
     }
 
     function unstakeVrsw(uint256 amount) external override {
@@ -176,6 +181,8 @@ contract vStaker is IvStaker {
 
         SafeERC20.safeTransfer(IERC20(vrswToken), msg.sender, amount);
         IvMinter(minter).burnGVrsw(msg.sender, amount);
+
+        emit UnstakeVrsw(msg.sender, amount);
     }
 
     function lockVrsw(uint256 amount, uint256 lockDuration) external override {
@@ -202,6 +209,7 @@ contract vStaker is IvStaker {
             amount
         );
         IvMinter(minter).mintGVrsw(msg.sender, amount);
+        emit LockVrsw(msg.sender, amount, lockDuration);
     }
 
     function lockStakedVrsw(
@@ -224,6 +232,7 @@ contract vStaker is IvStaker {
         senderStakes[0].amount = senderStakes[0].amount.sub(sd(int256(amount)));
         _newStakePosition(msg.sender, amount, lockDuration);
         _updateStateAfter(msg.sender);
+        emit LockStakedVrsw(msg.sender, amount, lockDuration);
     }
 
     function checkLock(
@@ -267,6 +276,7 @@ contract vStaker is IvStaker {
             SafeERC20.safeTransfer(IERC20(vrswToken), who, vrswToWithdraw);
             IvMinter(minter).burnGVrsw(msg.sender, vrswToWithdraw);
         }
+        emit WithdrawVrsw(who, vrswToWithdraw);
     }
 
     function _newStakePosition(

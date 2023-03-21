@@ -5,6 +5,8 @@ pragma solidity ^0.8.0;
 import {SD59x18} from '@prb/math/src/SD59x18.sol';
 
 interface IvTokenomicsParams {
+    event UpdateTokenomicsParams(SD59x18 r, SD59x18 b, SD59x18 alpha, SD59x18 beta, SD59x18 gamma);
+
     function updateParams(
         SD59x18 _r,
         SD59x18 _b,

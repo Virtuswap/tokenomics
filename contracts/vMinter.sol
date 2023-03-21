@@ -49,6 +49,7 @@ contract vMinter is IvMinter, Ownable {
         address _newStakerFactory
     ) external override onlyOwner {
         stakerFactory = _newStakerFactory;
+        emit NewStakerFactory(_newStakerFactory);
     }
 
     function newVesting(
@@ -69,6 +70,7 @@ contract vMinter is IvMinter, Ownable {
         );
         vestingWallets.push(vestingWallet);
         SafeERC20.safeTransfer(IERC20(vrsw), vestingWallet, amount);
+        emit NewVesting(vestingWallet, beneficiary, startTs, duration);
     }
 
     function setAllocationPoints(
@@ -129,6 +131,7 @@ contract vMinter is IvMinter, Ownable {
         stakers[msg.sender] = stakerInfo;
         algorithmicEmissionBalance -= amount;
         SafeERC20.safeTransfer(IERC20(vrsw), to, amount);
+        emit TransferRewards(to, amount);
     }
 
     function mintGVrsw(address to, uint256 amount) external override {

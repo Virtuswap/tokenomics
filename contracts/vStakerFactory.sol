@@ -52,12 +52,15 @@ contract vStakerFactory is IvStakerFactory {
         );
         stakers[_lpToken] = staker;
         allStakers.push(staker);
+
+        emit StakerCreated(staker, address(this), _lpToken);
     }
 
     function setPendingAdmin(
         address newPendingAdmin
     ) external override onlyAdmin {
         pendingAdmin = newPendingAdmin;
+        emit StakerFactoryNewPendingAdmin(newPendingAdmin);
     }
 
     function acceptAdmin() external override {
@@ -67,5 +70,6 @@ contract vStakerFactory is IvStakerFactory {
         );
         admin = pendingAdmin;
         pendingAdmin = address(0);
+        emit StakerFactoryNewAdmin(admin);
     }
 }

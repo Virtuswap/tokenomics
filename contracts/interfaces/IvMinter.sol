@@ -3,6 +3,10 @@
 pragma solidity ^0.8.0;
 
 interface IvMinter {
+    event NewStakerFactory(address stakerFactoryAddress);
+    event NewVesting(address vestingWallet, address beneficiary, uint256 startTs, uint256 duration);
+    event TransferRewards(address to, uint256 amount);
+
     function newVesting(
         address beneficiary,
         uint256 startTs,

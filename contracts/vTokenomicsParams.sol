@@ -35,5 +35,6 @@ contract vTokenomicsParams is IvTokenomicsParams, Ownable {
         alpha = _alpha;
         beta = _beta;
         gamma = _gamma;
+        emit UpdateTokenomicsParams(_r, _b, _alpha, _beta, _gamma);
     }
 }
