@@ -1,6 +1,9 @@
-import { HardhatUserConfig } from "hardhat/config";
-import "@nomicfoundation/hardhat-toolbox";
-import "hardhat-deploy";
+import { HardhatUserConfig } from 'hardhat/config';
+import '@nomicfoundation/hardhat-toolbox';
+import 'hardhat-deploy';
+import 'dotenv/config';
+
+const { POLYGON_MUMBAI_RPC_PROVIDER, PRIVATE_KEY } = process.env;
 
 const config: HardhatUserConfig = {
     defaultNetwork: 'hardhat',
@@ -8,19 +11,24 @@ const config: HardhatUserConfig = {
         hardhat: {
             chainId: 31337,
         },
+        mumbai: {
+            chainId: 80001,
+            url: POLYGON_MUMBAI_RPC_PROVIDER,
+            accounts: [`${PRIVATE_KEY}`],
+        },
     },
     solidity: {
-        version: "0.8.13",
+        version: '0.8.13',
         settings: {
             optimizer: {
                 enabled: true,
-            }
-        }
+            },
+        },
     },
     namedAccounts: {
         deployer: {
             default: 0,
-        }
+        },
     },
 };
 
