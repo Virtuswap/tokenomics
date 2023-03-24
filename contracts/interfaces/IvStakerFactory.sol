@@ -3,7 +3,11 @@
 pragma solidity ^0.8.0;
 
 interface IvStakerFactory {
-    event StakerCreated(address stakerAddress, address factory, address lpToken);
+    event StakerCreated(
+        address stakerAddress,
+        address factory,
+        address lpToken
+    );
     event StakerFactoryNewPendingAdmin(address newPendingAdmin);
     event StakerFactoryNewAdmin(address newAdmin);
 

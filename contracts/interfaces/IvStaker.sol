@@ -12,7 +12,7 @@ interface IvStaker {
     event UnstakeVrsw(address who, uint256 amount);
     event LockVrsw(address who, uint256 amount, uint256 lockDuration);
     event LockStakedVrsw(address who, uint256 amount, uint256 lockDuration);
-    event WithdrawVrsw(address who, uint256 amount);
+    event UnlockVrsw(address who, uint256 amount);
 
     function lpToken() external view returns (address);
 
@@ -34,7 +34,9 @@ interface IvStaker {
 
     function unstakeVrsw(uint256 amount) external;
 
-    function checkLock(address who) external view returns (bool isUnlocked);
+    function checkLock(
+        address who
+    ) external view returns (uint[] memory unlockedPositions);
 
-    function withdrawUnlockedVrsw(address who) external;
+    function unlockVrsw(address who, uint256 position) external;
 }

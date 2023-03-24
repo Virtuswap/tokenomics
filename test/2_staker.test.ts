@@ -362,10 +362,8 @@ describe('vStaker', function () {
         expect((await staker.stakes(accounts[0].address, 1)).amount).to.equal(
             amount
         );
-        expect(await staker.firstUnlockTs(accounts[0].address)).to.equal(
-            (await time.latest()) + 10
-        );
-        expect(await staker.checkLock(accounts[0].address)).to.equal(false);
+        expect(await staker.checkLock(accounts[0].address)).to.be.an('array')
+            .that.is.empty;
     });
 
     it('lockVrsw fails if amount is zero', async () => {
@@ -419,9 +417,6 @@ describe('vStaker', function () {
         expect((await staker.stakes(accounts[0].address, 0)).amount).to.equal(
             amount.div(2)
         );
-        expect(await staker.firstUnlockTs(accounts[0].address)).to.equal(
-            (await time.latest()) + 1
-        );
     });
 
     it('lockStakedVrsw fails if amount is greater than unstaked', async () => {
@@ -438,30 +433,32 @@ describe('vStaker', function () {
         );
     });
 
-    it('withdrawUnlockedVrsw works', async () => {
-        const accountBalanceBefore = await vrsw.balanceOf(accounts[0].address);
+    it('unlockVrsw works', async () => {
+        const unlockedVrswBefore = (await staker.viewStakes())[0].amount;
         const contractBalanceBefore = await vrsw.balanceOf(staker.address);
         const muBefore = await staker.mu(accounts[0].address);
         const totalMuBefore = await staker.totalMu();
         const totalVrswBefore = await staker.totalVrswAvailable();
         const compoundRateGlobalBefore = await staker.compoundRateGlobal();
         const totalRewardPointsBefore = await staker.totalRewardPoints();
-        expect(await staker.checkLock(accounts[0].address)).to.equal(true);
+        expect(
+            (await staker.checkLock(accounts[0].address)).toString()
+        ).to.be.equal('2');
         const gVrswAccountBalanceBefore = await gVrsw.balanceOf(
             accounts[0].address
         );
-        await staker.withdrawUnlockedVrsw(accounts[0].address);
+        await staker.unlockVrsw(accounts[0].address, 2);
         const totalRewardPointsAfter = await staker.totalRewardPoints();
-        const accountBalanceAfter = await vrsw.balanceOf(accounts[0].address);
+        const unlockedVrswAfter = (await staker.viewStakes())[0].amount;
         const contractBalanceAfter = await vrsw.balanceOf(staker.address);
         const compoundRateGlobalAfter = await staker.compoundRateGlobal();
         const gVrswAccountBalanceAfter = await gVrsw.balanceOf(
             accounts[0].address
         );
 
-        expect(accountBalanceAfter).to.be.above(accountBalanceBefore);
-        expect(gVrswAccountBalanceAfter).to.be.below(gVrswAccountBalanceBefore);
-        expect(contractBalanceAfter).to.be.below(contractBalanceBefore);
+        expect(unlockedVrswAfter).to.be.above(unlockedVrswBefore);
+        expect(gVrswAccountBalanceAfter).to.be.equal(gVrswAccountBalanceBefore);
+        expect(contractBalanceAfter).to.be.equal(contractBalanceBefore);
         expect(await staker.mu(accounts[0].address)).to.below(muBefore);
         expect(await staker.totalMu()).to.below(totalMuBefore);
         expect(await staker.totalVrswAvailable()).to.be.above(totalVrswBefore);
@@ -475,6 +472,7 @@ describe('vStaker', function () {
         expect(await staker.compoundRate(accounts[0].address)).to.be.equal(
             compoundRateGlobalAfter
         );
-        expect(await staker.checkLock(accounts[0].address)).to.equal(false);
+        expect(await staker.checkLock(accounts[0].address)).to.be.an('array')
+            .that.is.empty;
     });
 });
