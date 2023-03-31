@@ -52,9 +52,24 @@ const deployCore: DeployFunction = async function (
         log: true,
         waitConfirmations: networkConfig[network.name].blockConfirmations || 0,
     });
+
+    const stakerFactoryContract = await hre.ethers.getContractAt(
+        'vStakerFactory',
+        stakerFactory.address
+    );
+
     log('Core contracts deployed!');
     log('Setting stakerFactory for minter...');
     await minterContract.setStakerFactory(stakerFactory.address);
+    log('Setting allocation points...');
+    await minterContract.setAllocationPoints(
+        [
+            await stakerFactoryContract.getPoolStaker(
+                hre.ethers.constants.AddressZero
+            ),
+        ],
+        [1]
+    );
     log('Done!');
 
     if (
