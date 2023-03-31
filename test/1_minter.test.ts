@@ -13,7 +13,6 @@ import {
 import { time } from '@nomicfoundation/hardhat-network-helpers';
 
 describe('vMinter 1', function () {
-    let stakerFactory: VStakerFactory;
     let vrsw: Vrsw;
     let minter: VMinter;
     let accounts: SignerWithAddress[];
@@ -21,10 +20,8 @@ describe('vMinter 1', function () {
     beforeEach(async () => {
         accounts = await ethers.getSigners();
         await deployments.fixture(['all']);
-        stakerFactory = await ethers.getContract('stakerFactory');
         minter = await ethers.getContract('minter');
         vrsw = await ethers.getContractAt('Vrsw', await minter.vrsw());
-        await minter.setStakerFactory(stakerFactory.address);
         await time.setNextBlockTimestamp((await time.latest()) + 2);
     });
 
@@ -144,7 +141,6 @@ describe('vMinter: allocation points', function () {
         staker1 = await ethers.getContractAt('vStaker', staker1Addr);
         staker2 = await ethers.getContractAt('vStaker', staker2Addr);
         staker3 = await ethers.getContractAt('vStaker', staker3Addr);
-        await minter.setStakerFactory(stakerFactory.address);
     });
 
     it('setAllocationPoints works', async () => {

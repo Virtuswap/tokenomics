@@ -33,7 +33,6 @@ describe('vStaker', function () {
         staker = await ethers.getContractAt('vStaker', stakerAddr);
         await token0.approve(staker.address, ethers.utils.parseEther('1000'));
         await vrsw.approve(staker.address, ethers.utils.parseEther('1000'));
-        await minter.setStakerFactory(stakerFactory.address);
         await minter.setAllocationPoints([staker.address], ['100']);
         await minter.arbitraryTransfer(
             accounts[0].address,

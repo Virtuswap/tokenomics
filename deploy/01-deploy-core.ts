@@ -1,12 +1,13 @@
 import { HardhatRuntimeEnvironment } from 'hardhat/types';
 import { DeployFunction } from 'hardhat-deploy/types';
 import { time } from '@nomicfoundation/hardhat-network-helpers';
-import { networkConfig } from '../helper-hardhat-config';
+import { networkConfig, developmentChains } from '../helper-hardhat-config';
+import verify from '../utils/verify';
 
 const deployCore: DeployFunction = async function (
     hre: HardhatRuntimeEnvironment
 ) {
-    const { deployments, getNamedAccounts, network } = hre;
+    const { deployments, getNamedAccounts, network, config } = hre;
     const { deployer } = await getNamedAccounts();
     const { deploy, log } = deployments;
     const chainId: number = network.config.chainId!;
@@ -44,7 +45,7 @@ const deployCore: DeployFunction = async function (
     );
     const vrswTokenAddress = await minterContract.vrsw();
 
-    await deploy('stakerFactory', {
+    const stakerFactory = await deploy('stakerFactory', {
         from: deployer,
         contract: 'vStakerFactory',
         args: [vrswTokenAddress, minter.address, tokenomicsParams.address],
@@ -52,6 +53,22 @@ const deployCore: DeployFunction = async function (
         waitConfirmations: networkConfig[network.name].blockConfirmations || 0,
     });
     log('Core contracts deployed!');
+    log('Setting stakerFactory for minter...');
+    await minterContract.setStakerFactory(stakerFactory.address);
+    log('Done!');
+
+    if (
+        !developmentChains.includes(network.name) &&
+        config.etherscan.apiKey.polygonMumbai
+    ) {
+        await verify(tokenomicsParams.address, []);
+        await verify(minter.address, [timestamp, tokenomicsParams.address]);
+        await verify(stakerFactory.address, [
+            vrswTokenAddress,
+            minter.address,
+            tokenomicsParams.address,
+        ]);
+    }
 };
 export default deployCore;
 deployCore.tags = ['all', 'core'];
