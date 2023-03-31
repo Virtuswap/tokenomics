@@ -62,6 +62,7 @@ contract vStaker is IvStaker {
     }
 
     function stakeLp(uint256 amount) external override {
+        require(lpToken != address(0), 'can stake only vrsw');
         require(amount > 0, 'zero amount');
         require(block.timestamp >= emissionStartTs, 'too early');
 
@@ -109,6 +110,7 @@ contract vStaker is IvStaker {
     }
 
     function unstakeLp(uint256 amount) external override {
+        require(lpToken != address(0), 'can stake only vrsw');
         require(block.timestamp >= emissionStartTs, 'too early');
         require(
             int256(amount) <= unwrap(lpStake[msg.sender]) && amount > 0,
@@ -380,9 +382,11 @@ contract vStaker is IvStaker {
             );
         }
         mult = mult.add(UNIT);
-        SD59x18 muNew = lpStake[who]
-            .pow(IvTokenomicsParams(tokenomicsParams).alpha())
-            .mul(mult.pow(IvTokenomicsParams(tokenomicsParams).beta()));
+        SD59x18 muNew = (
+            lpToken == address(0)
+                ? UNIT
+                : lpStake[who].pow(IvTokenomicsParams(tokenomicsParams).alpha())
+        ).mul(mult.pow(IvTokenomicsParams(tokenomicsParams).beta()));
         totalMu = totalMu.add(muNew.sub(mu[who]));
         mu[who] = muNew;
     }

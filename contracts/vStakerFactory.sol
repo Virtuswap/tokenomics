@@ -32,6 +32,12 @@ contract vStakerFactory is IvStakerFactory {
         vrswToken = _vrswToken;
         minter = _minter;
         tokenomicsParams = _tokenomicsParams;
+        // create staker for VRSW staking (without lp tokens)
+        address staker = address(
+            new vStaker(address(0), vrswToken, minter, tokenomicsParams)
+        );
+        stakers[address(0)] = staker;
+        allStakers.push(staker);
     }
 
     function getPoolStaker(
