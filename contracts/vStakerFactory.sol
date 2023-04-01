@@ -40,6 +40,10 @@ contract vStakerFactory is IvStakerFactory {
         allStakers.push(staker);
     }
 
+    function getVRSWPoolStaker() external view override returns (address) {
+        return stakers[address(0)];
+    }
+    
     function getPoolStaker(
         address _lpToken
     ) external view override returns (address) {
