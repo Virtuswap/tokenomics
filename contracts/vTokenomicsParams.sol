@@ -7,6 +7,7 @@ import '@openzeppelin/contracts/access/Ownable.sol';
 import './interfaces/IvTokenomicsParams.sol';
 
 contract vTokenomicsParams is IvTokenomicsParams, Ownable {
+    // Ten years in seconds starting from 2023
     uint256 public constant TEN_YEARS = (365 * 8 + 366 * 2) * 24 * 60 * 60;
 
     SD59x18 public override r;
@@ -15,6 +16,9 @@ contract vTokenomicsParams is IvTokenomicsParams, Ownable {
     SD59x18 public override beta;
     SD59x18 public override gamma;
 
+    /**
+     * @dev Initializes the contract with default values for the tokenomics parameters.
+     */
     constructor() {
         r = SD59x18.wrap((0.693 * 1e18) / int256(TEN_YEARS));
         b = SD59x18.wrap(1e18 / int256(TEN_YEARS));
@@ -23,6 +27,7 @@ contract vTokenomicsParams is IvTokenomicsParams, Ownable {
         beta = SD59x18.wrap(0.5e18);
     }
 
+    /// @inheritdoc IvTokenomicsParams
     function updateParams(
         SD59x18 _r,
         SD59x18 _b,

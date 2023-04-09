@@ -14,17 +14,22 @@ import './vVestingWallet.sol';
 import './Vrsw.sol';
 import './GVrsw.sol';
 
+/**
+ * @title vMinter
+ * @dev This contract is responsible for minting and distributing VRSW tokens to stakers, and
+ * for managing the VRSW and gVRSW tokens supplies.
+ */
 contract vMinter is IvMinter, Ownable {
     struct StakerInfo {
-        uint128 totalAllocated;
-        uint128 totalTransferred;
-        uint128 totalCompoundRate;
-        uint128 lastUpdated;
+        uint128 totalAllocated; // Total amount of VRSW tokens allocated to the staker
+        uint128 totalTransferred; // Total amount of VRSW tokens already transferred to the staker
+        uint128 totalCompoundRate; // Total compound rate of the staker
+        uint128 lastUpdated; // Timestamp of the last update to the staker info
     }
 
     uint128 public constant ALLOCATION_POINTS_FACTOR = 100;
 
-    uint256 public algorithmicEmissionBalance;
+    uint256 public algorithmicEmissionBalance; // The balance of VRSW tokens for algorithmic emission
 
     mapping(address => StakerInfo) public stakers;
     mapping(address => uint256) public allocationPoints;
@@ -37,6 +42,11 @@ contract vMinter is IvMinter, Ownable {
     uint256 public immutable emissionStartTs;
     address public immutable tokenomicsParams;
 
+    /**
+     * @dev Constructor function
+     * @param _emissionStartTs Timestamp of the start of emission
+     * @param _tokenomicsParams Address of the tokenomics parameters contract
+     */
     constructor(uint256 _emissionStartTs, address _tokenomicsParams) {
         emissionStartTs = _emissionStartTs;
         tokenomicsParams = _tokenomicsParams;
@@ -45,6 +55,7 @@ contract vMinter is IvMinter, Ownable {
         gVrsw = new GVrsw(address(this));
     }
 
+    /// @inheritdoc IvMinter
     function setStakerFactory(
         address _newStakerFactory
     ) external override onlyOwner {
@@ -52,6 +63,7 @@ contract vMinter is IvMinter, Ownable {
         emit NewStakerFactory(_newStakerFactory);
     }
 
+    /// @inheritdoc IvMinter
     function newVesting(
         address beneficiary,
         uint256 startTs,
@@ -73,6 +85,7 @@ contract vMinter is IvMinter, Ownable {
         emit NewVesting(vestingWallet, beneficiary, startTs, duration);
     }
 
+    /// @inheritdoc IvMinter
     function setAllocationPoints(
         address[] calldata _stakers,
         uint256[] calldata _allocationPoints
@@ -82,7 +95,7 @@ contract vMinter is IvMinter, Ownable {
         address _stakerFactory = stakerFactory;
         for (uint256 i = 0; i < _stakers.length; ++i) {
             require(
-                IvStakerFactory(_stakerFactory).stakers(
+                IvStakerFactory(_stakerFactory).getPoolStaker(
                     IvStaker(_stakers[i]).lpToken()
                 ) == _stakers[i],
                 'invalid staker'
@@ -100,6 +113,7 @@ contract vMinter is IvMinter, Ownable {
         }
     }
 
+    /// @inheritdoc IvMinter
     function arbitraryTransfer(
         address to,
         uint256 amount
@@ -109,11 +123,12 @@ contract vMinter is IvMinter, Ownable {
         SafeERC20.safeTransfer(IERC20(vrsw), to, amount);
     }
 
+    /// @inheritdoc IvMinter
     function transferRewards(address to, uint256 amount) external override {
         require(block.timestamp >= emissionStartTs, 'too early');
         require(amount > 0, 'zero amount');
         require(
-            IvStakerFactory(stakerFactory).stakers(
+            IvStakerFactory(stakerFactory).getPoolStaker(
                 IvStaker(msg.sender).lpToken()
             ) == msg.sender,
             'invalid staker'
@@ -134,10 +149,11 @@ contract vMinter is IvMinter, Ownable {
         emit TransferRewards(to, amount);
     }
 
+    /// @inheritdoc IvMinter
     function mintGVrsw(address to, uint256 amount) external override {
         require(amount > 0, 'zero amount');
         require(
-            IvStakerFactory(stakerFactory).stakers(
+            IvStakerFactory(stakerFactory).getPoolStaker(
                 IvStaker(msg.sender).lpToken()
             ) == msg.sender,
             'invalid staker'
@@ -145,10 +161,11 @@ contract vMinter is IvMinter, Ownable {
         gVrsw.mint(to, amount);
     }
 
+    /// @inheritdoc IvMinter
     function burnGVrsw(address to, uint256 amount) external override {
         require(amount > 0, 'zero amount');
         require(
-            IvStakerFactory(stakerFactory).stakers(
+            IvStakerFactory(stakerFactory).getPoolStaker(
                 IvStaker(msg.sender).lpToken()
             ) == msg.sender,
             'invalid staker'
@@ -156,6 +173,7 @@ contract vMinter is IvMinter, Ownable {
         gVrsw.burn(to, amount);
     }
 
+    /// @inheritdoc IvMinter
     function calculateTokensForStaker(
         address staker
     ) external view override returns (uint256) {
@@ -164,6 +182,7 @@ contract vMinter is IvMinter, Ownable {
         return stakerInfo.totalAllocated;
     }
 
+    /// @inheritdoc IvMinter
     function calculateCompoundRateForStaker(
         address staker
     ) external view override returns (uint256) {
@@ -172,6 +191,10 @@ contract vMinter is IvMinter, Ownable {
         return stakerInfo.totalCompoundRate;
     }
 
+    /**
+     * @dev Returns the number of unlocked VRSW tokens held by the contract.
+     * @return The number of unlocked VRSW tokens held by the contract.
+     */
     function unlockedBalance() public view returns (uint256) {
         return
             IERC20(vrsw).balanceOf(address(this)) -
@@ -179,6 +202,11 @@ contract vMinter is IvMinter, Ownable {
             EmissionMath.currentlyLockedForProject(emissionStartTs);
     }
 
+    /**
+     * @dev Updates the specified staker's allocation information based on the current state of the emission.
+     * @param stakerInfo The current allocation information for the staker.
+     * @param _allocationPoints The allocation points for the staker's staking contract.
+     */
     function _updateStakerInfo(
         StakerInfo memory stakerInfo,
         uint256 _allocationPoints

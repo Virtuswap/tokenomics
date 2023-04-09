@@ -8,7 +8,7 @@ import './interfaces/IvStakerFactory.sol';
 import './types.sol';
 
 contract vStakerFactory is IvStakerFactory {
-    mapping(address => address) public override stakers;
+    mapping(address => address) public stakers;
     address[] public allStakers;
 
     address public override admin;
@@ -40,16 +40,19 @@ contract vStakerFactory is IvStakerFactory {
         allStakers.push(staker);
     }
 
+    /// @inheritdoc IvStakerFactory
     function getVRSWPoolStaker() external view override returns (address) {
         return stakers[address(0)];
     }
-    
+
+    /// @inheritdoc IvStakerFactory
     function getPoolStaker(
         address _lpToken
     ) external view override returns (address) {
         return stakers[_lpToken];
     }
 
+    /// @inheritdoc IvStakerFactory
     function createPoolStaker(
         address _lpToken
     ) external override returns (address staker) {
@@ -66,6 +69,7 @@ contract vStakerFactory is IvStakerFactory {
         emit StakerCreated(staker, address(this), _lpToken);
     }
 
+    /// @inheritdoc IvStakerFactory
     function setPendingAdmin(
         address newPendingAdmin
     ) external override onlyAdmin {
@@ -73,6 +77,7 @@ contract vStakerFactory is IvStakerFactory {
         emit StakerFactoryNewPendingAdmin(newPendingAdmin);
     }
 
+    /// @inheritdoc IvStakerFactory
     function acceptAdmin() external override {
         require(
             msg.sender != address(0) && msg.sender == pendingAdmin,

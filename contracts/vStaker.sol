@@ -12,16 +12,55 @@ import './interfaces/IvMinter.sol';
 import './interfaces/IvTokenomicsParams.sol';
 
 contract vStaker is IvStaker {
+    /**
+     * @dev The amount of LP tokens staked by each user.
+     */
     mapping(address => SD59x18) public lpStake;
+
+    /**
+     * @dev The compound rate of each user.
+     */
     mapping(address => SD59x18) public compoundRate;
+
+    /**
+     * @dev The mu value of each user's stake. You can learn more about mu and
+     * staking formula in Virtuswap Tokenomics Whitepaper.
+     */
     mapping(address => SD59x18) public mu;
+
+    /**
+     * @dev The reward points earned by each user.
+     */
     mapping(address => SD59x18) public rewardPoints;
+
+    /**
+     * @dev The amount of rewards claimed by each user.
+     */
     mapping(address => SD59x18) public rewardsClaimed;
+
+    /**
+     * @dev The VRSW stakes of each user.
+     */
     mapping(address => Stake[]) public stakes;
 
+    /**
+     * @dev Sum of all user's mu values.
+     */
     SD59x18 public totalMu;
+
+    /**
+     * @dev Sum of all user's reward points.
+     */
     SD59x18 public totalRewardPoints;
+
+    /**
+     * @dev The compound rate for the whole staker.
+     */
     SD59x18 public compoundRateGlobal;
+
+    /**
+     * @dev The total amount of VRSW tokens available for distribution as rewards.
+     */
     SD59x18 public totalVrswAvailable;
 
     address public immutable lpToken;
@@ -43,6 +82,7 @@ contract vStaker is IvStaker {
         emissionStartTs = IvMinter(minter).emissionStartTs();
     }
 
+    /// @inheritdoc IvStaker
     function stakeVrsw(uint256 amount) external override {
         require(amount > 0, 'insufficient amount');
         require(block.timestamp >= emissionStartTs, 'too early');
@@ -61,6 +101,7 @@ contract vStaker is IvStaker {
         emit StakeVrsw(msg.sender, amount);
     }
 
+    /// @inheritdoc IvStaker
     function stakeLp(uint256 amount) external override {
         require(lpToken != address(0), 'can stake only vrsw');
         require(amount > 0, 'zero amount');
@@ -79,6 +120,7 @@ contract vStaker is IvStaker {
         emit StakeLp(msg.sender, amount);
     }
 
+    /// @inheritdoc IvStaker
     function claimRewards() external override {
         require(block.timestamp >= emissionStartTs, 'too early');
         _updateStateBefore(msg.sender);
@@ -94,12 +136,14 @@ contract vStaker is IvStaker {
         emit RewardsClaimed(msg.sender, amountToClaim);
     }
 
+    /// @inheritdoc IvStaker
     function viewRewards(
         address who
     ) external view override returns (uint256 rewards) {
         rewards = _calculateAccruedRewards(who, false);
     }
 
+    /// @inheritdoc IvStaker
     function viewStakes()
         external
         view
@@ -109,6 +153,7 @@ contract vStaker is IvStaker {
         _stakes = stakes[msg.sender];
     }
 
+    /// @inheritdoc IvStaker
     function unstakeLp(uint256 amount) external override {
         require(lpToken != address(0), 'can stake only vrsw');
         require(block.timestamp >= emissionStartTs, 'too early');
@@ -125,6 +170,7 @@ contract vStaker is IvStaker {
         emit UnstakeLp(msg.sender, amount);
     }
 
+    /// @inheritdoc IvStaker
     function unstakeVrsw(uint256 amount) external override {
         require(block.timestamp >= emissionStartTs, 'too early');
         Stake[] storage senderStakes = stakes[msg.sender];
@@ -144,6 +190,7 @@ contract vStaker is IvStaker {
         emit UnstakeVrsw(msg.sender, amount);
     }
 
+    /// @inheritdoc IvStaker
     function lockVrsw(uint256 amount, uint256 lockDuration) external override {
         require(block.timestamp >= emissionStartTs, 'too early');
         Stake[] storage senderStakes = stakes[msg.sender];
@@ -168,6 +215,7 @@ contract vStaker is IvStaker {
         emit LockVrsw(msg.sender, amount, lockDuration);
     }
 
+    /// @inheritdoc IvStaker
     function lockStakedVrsw(
         uint256 amount,
         uint256 lockDuration
@@ -188,6 +236,7 @@ contract vStaker is IvStaker {
         emit LockStakedVrsw(msg.sender, amount, lockDuration);
     }
 
+    /// @inheritdoc IvStaker
     function checkLock(
         address who
     ) external view override returns (uint[] memory unlockedPositions) {
@@ -213,6 +262,7 @@ contract vStaker is IvStaker {
         }
     }
 
+    /// @inheritdoc IvStaker
     function unlockVrsw(address who, uint256 position) external override {
         require(block.timestamp >= emissionStartTs, 'too early');
         require(position > 0, 'invalid position');
@@ -234,6 +284,11 @@ contract vStaker is IvStaker {
         emit UnlockVrsw(who, vrswToUnlock);
     }
 
+    /**
+     * @dev Adds a new stake position for the staker
+     * @param amount Amount of VRSW tokens to stake
+     * @param lockDuration Duration of the lock period for the stake
+     */
     function _newStakePosition(uint256 amount, uint256 lockDuration) private {
         Stake[] storage senderStakes = stakes[msg.sender];
         senderStakes.push(
@@ -250,6 +305,11 @@ contract vStaker is IvStaker {
         );
     }
 
+    /**
+     * @dev Stakes VRSW after the lock has expired
+     * @param who The staker address
+     * @param amount Amount of VRSW tokens to stake
+     */
     function _stakeUnlocked(address who, uint256 amount) private {
         Stake[] storage senderStakes = stakes[who];
 
@@ -282,6 +342,12 @@ contract vStaker is IvStaker {
         );
     }
 
+    /**
+     * @dev Calculates the accrued rewards for the staker
+     * @param who The staker address
+     * @param isStateChanged Whether the global state was changed before this function call
+     * @return The amount of accrued rewards
+     */
     function _calculateAccruedRewards(
         address who,
         bool isStateChanged
@@ -312,6 +378,12 @@ contract vStaker is IvStaker {
             );
     }
 
+    /**
+     * @dev Calculates the state of the staker before the update
+     * @param who The staker address
+     * Returns the total available VRSW tokens, the reward points of the staker, the total reward points,
+     *         the compound rate of the staker, and the global compound rate
+     */
     function _calculateStateBefore(
         address who
     )
@@ -354,6 +426,10 @@ contract vStaker is IvStaker {
         _senderCompoundRate = compoundRate[who].add(deltaCompoundRate);
     }
 
+    /**
+     * @dev Updates the state of the staker before the update
+     * @param who The staker address
+     */
     function _updateStateBefore(address who) private {
         (
             totalVrswAvailable,
@@ -364,6 +440,10 @@ contract vStaker is IvStaker {
         ) = _calculateStateBefore(who);
     }
 
+    /**
+     * @dev Updates the state of the staker after the update
+     * @param who The staker address
+     */
     function _updateStateAfter(address who) private {
         Stake[] storage senderStakes = stakes[who];
         SD59x18 mult;
