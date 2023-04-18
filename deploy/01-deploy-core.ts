@@ -78,11 +78,6 @@ const deployCore: DeployFunction = async function (
     log('Core contracts deployed!');
     log('Setting stakerFactory for minter...');
     await chainMinterContract.setStakerFactory(stakerFactory.address);
-    log('Setting allocation points...');
-    await chainMinterContract.setAllocationPoints(
-        [await stakerFactoryContract.getVRSWPoolStaker()],
-        [100]
-    );
     log('Done!');
 
     if (

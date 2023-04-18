@@ -101,12 +101,12 @@ contract vChainMinter is IvChainMinter, Ownable {
         uint256 _epochPreparationTime
     ) external override onlyOwner {
         require(
-            _epochPreparationTime < _epochDuration,
-            'preparationTime >= epochDuration'
-        );
-        require(
             _epochPreparationTime > 0 && _epochDuration > 0,
             'must be greater than zero'
+        );
+        require(
+            _epochPreparationTime < _epochDuration,
+            'preparationTime >= epochDuration'
         );
         (nextEpochPreparationTime, nextEpochDuration) = (
             _epochPreparationTime,
