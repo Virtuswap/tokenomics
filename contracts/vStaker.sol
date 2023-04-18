@@ -8,7 +8,7 @@ import '@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol';
 import '@openzeppelin/contracts/utils/math/Math.sol';
 import './types.sol';
 import './interfaces/IvStaker.sol';
-import './interfaces/IvMinter.sol';
+import './interfaces/IvChainMinter.sol';
 import './interfaces/IvTokenomicsParams.sol';
 
 contract vStaker is IvStaker {
@@ -79,7 +79,7 @@ contract vStaker is IvStaker {
         minter = _minter;
         vrswToken = _vrswToken;
         tokenomicsParams = _tokenomicsParams;
-        emissionStartTs = IvMinter(minter).emissionStartTs();
+        emissionStartTs = IvChainMinter(minter).emissionStartTs();
     }
 
     /// @inheritdoc IvStaker
@@ -97,7 +97,7 @@ contract vStaker is IvStaker {
             address(this),
             amount
         );
-        IvMinter(minter).mintGVrsw(msg.sender, amount);
+        IvChainMinter(minter).mintGVrsw(msg.sender, amount);
         emit StakeVrsw(msg.sender, amount);
     }
 
@@ -131,7 +131,7 @@ contract vStaker is IvStaker {
         _updateStateAfter(msg.sender);
 
         if (amountToClaim > 0) {
-            IvMinter(minter).transferRewards(msg.sender, amountToClaim);
+            IvChainMinter(minter).transferRewards(msg.sender, amountToClaim);
         }
         emit RewardsClaimed(msg.sender, amountToClaim);
     }
@@ -185,7 +185,7 @@ contract vStaker is IvStaker {
         _updateStateAfter(msg.sender);
 
         SafeERC20.safeTransfer(IERC20(vrswToken), msg.sender, amount);
-        IvMinter(minter).burnGVrsw(msg.sender, amount);
+        IvChainMinter(minter).burnGVrsw(msg.sender, amount);
 
         emit UnstakeVrsw(msg.sender, amount);
     }
@@ -211,7 +211,7 @@ contract vStaker is IvStaker {
             address(this),
             amount
         );
-        IvMinter(minter).mintGVrsw(msg.sender, amount);
+        IvChainMinter(minter).mintGVrsw(msg.sender, amount);
         emit LockVrsw(msg.sender, amount, lockDuration);
     }
 
@@ -400,14 +400,16 @@ contract vStaker is IvStaker {
         _totalVrswAvailable = sd(
             int256(
                 uint256(
-                    IvMinter(minter).calculateTokensForStaker(address(this))
+                    IvChainMinter(minter).calculateTokensForStaker(
+                        address(this)
+                    )
                 )
             )
         );
         _compoundRateGlobal = sd(
             int256(
                 uint256(
-                    IvMinter(minter).calculateCompoundRateForStaker(
+                    IvChainMinter(minter).calculateCompoundRateForStaker(
                         address(this)
                     )
                 )

@@ -3,28 +3,14 @@
 pragma solidity ^0.8.0;
 
 /**
-@title Interface for vMinter contract, which handles VRSW and gVRSW tokens distribution.
+@title Interface for vChainMinter contract, which handles VRSW and gVRSW tokens distribution.
 */
-interface IvMinter {
+interface IvChainMinter {
     /**
      * @notice Emitted when a new staker factory is set.
      * @param stakerFactoryAddress is the address of the new staker factory.
      */
     event NewStakerFactory(address stakerFactoryAddress);
-
-    /**
-     * @notice Emitted when a new vVestingWallet contract is created.
-     * @param vestingWallet The address of the vesting wallet.
-     * @param beneficiary The address of the beneficiary of the vesting contract.
-     * @param startTs The start timestamp of the vesting contract.
-     * @param duration The duration of the vesting contract.
-     */
-    event NewVesting(
-        address vestingWallet,
-        address beneficiary,
-        uint256 startTs,
-        uint256 duration
-    );
 
     /**
      * @notice Emitted when rewards are transferred to an address.
@@ -34,23 +20,29 @@ interface IvMinter {
     event TransferRewards(address to, uint256 amount);
 
     /**
-     * @notice Creates a new vVestingWallet contract for the given beneficiary.
-     * @dev Can be called only by owner.
-     * @param beneficiary The address of the beneficiary of the vesting contract.
-     * @param startTs The start timestamp of the vesting contract.
-     * @param duration The duration of the vesting contract.
-     * @param amount The amount of tokens to be vested.
-     * @return vestingWallet The address of the new vesting wallet.
+     * @notice Changes minting epoch duration and preparation time.
+     * @param _epochDuration The duration (in seconds) of the epoch starting from the next
+     * @param _epochPreparationTime The time (in seconds) before the next epoch for transfering
+     * tokens.
      *
      * Requirements:
      * - The caller must be the owner of the contract.
      */
-    function newVesting(
-        address beneficiary,
-        uint256 startTs,
-        uint256 duration,
-        uint256 amount
-    ) external returns (address vestingWallet);
+    function setEpochParams(
+        uint256 _epochDuration,
+        uint256 _epochPreparationTime
+    ) external;
+
+    /**
+     * @notice Accepts transfer of necessary amount of VRSW tokens for the
+     * next mining epoch according to the schedule defined in EmissionMath library.
+     * Currently the transfers are done manually using intermediary wallet (contracts owner).
+     * @param nextBalance Amount of VRSW tokens for the next epoch.
+     *
+     * Requirements:
+     * - The caller must be the owner of the contract.
+     */
+    function prepareForNextEpoch(uint256 nextBalance) external;
 
     /**
      * @dev Sets the allocation points for a list of stakers.
@@ -80,24 +72,6 @@ interface IvMinter {
     function setStakerFactory(address _newStakerFactory) external;
 
     /**
-     * @notice Transfers a specified amount of tokens to a recipient.
-     *
-     * This function allows the owner of the contract to transfer a specified
-     * amount of unlocked tokens to a recipient address. The caller must be the
-     * owner of the contract, and the current timestamp must be later than the
-     * contract's emission start time.
-     *
-     * @param to The address of the recipient to transfer tokens to.
-     * @param amount The amount of tokens to transfer.
-     *
-     * Requirements:
-     * - The caller must be the owner of the contract.
-     * - The current timestamp must be later than the contract's emission start time.
-     * - The contract must have enough unlocked tokens to transfer.
-     */
-    function arbitraryTransfer(address to, uint256 amount) external;
-
-    /**
      * @notice Returns the timestamp when VRSW emission began.
      * @return The timestamp when VRSW emission began.
      */
@@ -124,20 +98,20 @@ interface IvMinter {
     function transferRewards(address to, uint256 amount) external;
 
     /**
-     *@notice Mint gVrsw tokens to the specified to address.
-     *@param to The address to which the minted gVrsw tokens will be sent.
-     *@param amount The amount of gVrsw tokens to be minted.
-     *Requirements:
-     *- amount must be greater than zero.
-     *- The sender must be a valid staker.
+     * @notice Mint gVrsw tokens to the specified to address.
+     * @param to The address to which the minted gVrsw tokens will be sent.
+     * @param amount The amount of gVrsw tokens to be minted.
+     * Requirements:
+     * - amount must be greater than zero.
+     * - The sender must be a valid staker.
      */
     function mintGVrsw(address to, uint256 amount) external;
 
     /**
-     *@notice Burn amount of gVrsw tokens from the specified to address.
-     *@param to The address from which the gVrsw tokens will be burned.
-     *@param amount The amount of gVrsw tokens to be burned.
-     *Requirements:
+     * @notice Burn amount of gVrsw tokens from the specified to address.
+     * @param to The address from which the gVrsw tokens will be burned.
+     * @param amount The amount of gVrsw tokens to be burned.
+     * Requirements:
      * - amount must be greater than zero.
      * - The sender must be a valid staker.
      */
