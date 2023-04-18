@@ -6,7 +6,8 @@ import {
     GVrsw,
     VStakerFactory,
     VStaker,
-    VMinter,
+    VChainMinter,
+    VGlobalMinter,
     Token0,
 } from '../typechain-types';
 import { time } from '@nomicfoundation/hardhat-network-helpers';
@@ -18,25 +19,58 @@ describe('vStaker', function () {
     let token0: Token0;
     let staker: VStaker;
     let accounts: SignerWithAddress[];
-    let minter: VMinter;
+    let minter: VChainMinter;
+    let globalMinter: VGlobalMinter;
 
     before(async () => {
+        // init
         accounts = await ethers.getSigners();
         await deployments.fixture(['all']);
         stakerFactory = await ethers.getContract('stakerFactory');
         token0 = await ethers.getContract('Token0');
-        minter = await ethers.getContract('minter');
+        minter = await ethers.getContract('chainMinter');
+        globalMinter = await ethers.getContract('globalMinter');
         vrsw = await ethers.getContractAt('Vrsw', await minter.vrsw());
         gVrsw = await ethers.getContractAt('GVrsw', await minter.gVrsw());
+
+        // create staker for token0
         await stakerFactory.createPoolStaker(token0.address);
         const stakerAddr = await stakerFactory.getPoolStaker(token0.address);
         staker = await ethers.getContractAt('vStaker', stakerAddr);
+
+        // approve
         await token0.approve(staker.address, ethers.utils.parseEther('1000'));
         await vrsw.approve(staker.address, ethers.utils.parseEther('1000'));
-        await minter.setAllocationPoints([staker.address], ['100']);
-        await minter.arbitraryTransfer(
+        await vrsw.approve(minter.address, ethers.utils.parseEther('10000000'));
+
+        // set allocation points for new staker and default staker
+        await minter.setAllocationPoints(
+            [staker.address, await stakerFactory.getVRSWPoolStaker()],
+            ['70', '30']
+        );
+
+        // new chain minter deployed
+        await globalMinter.addChainMinter();
+        // get tokens for the next epoch
+        await globalMinter.nextEpochTransfer();
+        // transfer tokens for the next epoch to the chain minter
+        await minter.prepareForNextEpoch(
+            await vrsw.balanceOf(accounts[0].address)
+        );
+        await gVrsw.transfer(
+            minter.address,
+            ethers.utils.parseEther('1000000000')
+        );
+
+        // skip time to emissionStart
+        await time.setNextBlockTimestamp(
+            (await globalMinter.emissionStartTs()).add(60)
+        );
+
+        // get vrsw tokens for testing
+        await globalMinter.arbitraryTransfer(
             accounts[0].address,
-            await minter.unlockedBalance()
+            ethers.utils.parseEther('1000')
         );
     });
 
@@ -269,6 +303,10 @@ describe('vStaker', function () {
         const totalRewardPointsBefore = await staker.totalRewardPoints();
         const gVrswAccountBalanceBefore = await gVrsw.balanceOf(
             accounts[0].address
+        );
+        await gVrsw.approve(
+            minter.address,
+            await gVrsw.balanceOf(accounts[0].address)
         );
         await staker.unstakeVrsw(amount);
         const totalRewardPointsAfter = await staker.totalRewardPoints();

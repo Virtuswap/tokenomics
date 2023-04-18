@@ -38,7 +38,7 @@ contract vGlobalMinter is IvGlobalMinter, Ownable {
      */
     constructor(uint256 _emissionStartTs) {
         emissionStartTs = _emissionStartTs;
-        unlockedBalance = 5e8;
+        unlockedBalance = 5e8 * 1e18;
         epochDuration = 4 weeks;
         epochPreparationTime = 1 weeks;
         startEpochTime = _emissionStartTs - epochDuration;
@@ -96,9 +96,9 @@ contract vGlobalMinter is IvGlobalMinter, Ownable {
         );
         uint256 amountToTransfer = EmissionMath.calculateAlgorithmicEmission(
             currentEpochEnd - emissionStartTs,
-            currentEpochEnd + nextEpochDuration > 0
-                ? nextEpochDuration
-                : epochDuration - emissionStartTs
+            currentEpochEnd +
+                (nextEpochDuration > 0 ? nextEpochDuration : epochDuration) -
+                emissionStartTs
         );
         SafeERC20.safeTransfer(IERC20(vrsw), msg.sender, amountToTransfer);
     }
