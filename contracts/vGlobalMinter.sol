@@ -109,12 +109,12 @@ contract vGlobalMinter is IvGlobalMinter, Ownable {
         uint256 _epochPreparationTime
     ) external override onlyOwner {
         require(
-            _epochPreparationTime < _epochDuration,
-            'preparationTime >= epochDuration'
-        );
-        require(
             _epochPreparationTime > 0 && _epochDuration > 0,
             'must be greater than zero'
+        );
+        require(
+            _epochPreparationTime < _epochDuration,
+            'preparationTime >= epochDuration'
         );
         if (block.timestamp >= startEpochTime + epochDuration)
             _epochTransition();
