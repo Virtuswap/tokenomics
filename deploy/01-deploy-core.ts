@@ -55,6 +55,7 @@ const deployCore: DeployFunction = async function (
             vrswTokenAddress,
             gVrswTokenAddress,
         ],
+        log: true,
     });
 
     const stakerFactory = await deploy('stakerFactory', {
