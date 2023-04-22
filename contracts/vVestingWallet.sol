@@ -13,10 +13,19 @@ import '@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol';
 contract vVestingWallet {
     event ERC20Released(address indexed token, uint256 amount);
 
+    // number of tokens already released
     uint256 private _erc20Released;
+
+    // beneficiary address
     address private immutable _beneficiary;
+
+    // VRSW token address
     address private immutable _erc20Token;
+
+    // start of vesting timestamp
     uint64 private immutable _start;
+
+    // duration of vesting
     uint64 private immutable _duration;
 
     /**

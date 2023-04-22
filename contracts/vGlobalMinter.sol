@@ -17,19 +17,41 @@ import './GVrsw.sol';
  * tokens.
  */
 contract vGlobalMinter is IvGlobalMinter, Ownable {
+    // list of all vesting wallets that were created by the minter
     address[] public vestingWallets;
 
+    // VRSW token
     Vrsw public vrsw;
+
+    // gVRSW token
     GVrsw public gVrsw;
 
+    // VRSW algorithmic distribution is divided into epochs
+
+    // the timestamp of the current epoch start
     uint256 public startEpochTime;
+
+    // current epoch duration (in seconds)
     uint256 public epochDuration;
+
+    // the time (in seconds) before the next epoch to transfer the necessary
+    // amount of VRSW tokens for the next epoch to distribute
     uint256 public epochPreparationTime;
+
+    // the next epoch duration
+    // if the value is zero then the next epoch duration is the same as the current
+    // epoch duration
     uint256 public nextEpochDuration;
+
+    // the next epoch preparation time
+    // if the value is zero then the next epoch preparation time is the same as
+    // the current epoch preparation time
     uint256 public nextEpochPreparationTime;
 
+    // balance that is available for arbitraryTransfer and newVesting functions
     uint256 public unlockedBalance;
 
+    // timestamp of VRSW emission start
     uint256 public immutable emissionStartTs;
 
     /**

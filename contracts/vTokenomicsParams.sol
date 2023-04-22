@@ -10,6 +10,7 @@ contract vTokenomicsParams is IvTokenomicsParams, Ownable {
     // Ten years in seconds starting from 2023
     uint256 public constant TEN_YEARS = (365 * 8 + 366 * 2) * 24 * 60 * 60;
 
+    // parameters used in formula (3) in Virtuswap Tokenomics Whitepaper
     SD59x18 public override r;
     SD59x18 public override b;
     SD59x18 public override alpha;

@@ -63,10 +63,19 @@ contract vStaker is IvStaker {
      */
     SD59x18 public totalVrswAvailable;
 
+    // lp token address
     address public immutable lpToken;
+
+    // minter address
     address public immutable minter;
+
+    // VRSW token address
     address public immutable vrswToken;
+
+    // tokenomics params address
     address public immutable tokenomicsParams;
+
+    // start of VRSW emission in seconds
     uint256 public immutable emissionStartTs;
 
     constructor(

@@ -26,25 +26,57 @@ contract vChainMinter is IvChainMinter, Ownable {
 
     uint256 public constant ALLOCATION_POINTS_FACTOR = 100;
 
+    // number of VRSW tokens allocated for the current epoch
     uint256 public currentEpochBalance;
+
+    // number of VRSW tokens allocated for the next epoch
     uint256 public nextEpochBalance;
+
+    // current epoch duration (in seconds)
     uint256 public epochDuration;
+
+    // the time (in seconds) before the next epoch to transfer the necessary
+    // amount of VRSW tokens for the next epoch to distribute
     uint256 public epochPreparationTime;
+
+    // the next epoch duration
+    // if the value is zero then the next epoch duration is the same as the current
+    // epoch duration
     uint256 public nextEpochDuration;
+
+    // the next epoch preparation time
+    // if the value is zero then the next epoch preparation time is the same as
+    // the current epoch preparation time
     uint256 public nextEpochPreparationTime;
+
+    // the timestamp of the current epoch start
     uint256 public startEpochTime;
+
+    // balance of VRSW tokens when the current epoch started
     uint256 public startEpochSupply;
 
+    // total allocation points currently (must be always less than ALLOCATION_POINTS_FACTOR)
     uint256 public totalAllocationPoints;
 
+    // stakers info
     mapping(address => StakerInfo) public stakers;
+
+    // allocation points of stakers
     mapping(address => uint256) public allocationPoints;
 
+    // staker factory address
     address public stakerFactory;
 
+    // timestamp of VRSW emission start
     uint256 public immutable emissionStartTs;
+
+    // tokenomics params contract address
     address public immutable tokenomicsParams;
+
+    // VRSW token address
     address public immutable vrsw;
+
+    // gVRSW token address
     address public immutable gVrsw;
 
     /**

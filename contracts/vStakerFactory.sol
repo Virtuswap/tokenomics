@@ -8,14 +8,25 @@ import './interfaces/IvStakerFactory.sol';
 import './types.sol';
 
 contract vStakerFactory is IvStakerFactory {
+    // mapping of lp tokens to the corresponding staker
     mapping(address => address) public stakers;
+
+    // list of all created stakers
     address[] public allStakers;
 
+    // staker factory admin
     address public override admin;
+
+    // staker factory pending admin
     address public override pendingAdmin;
 
+    // VRSW token address
     address public immutable vrswToken;
+
+    // chain minter address
     address public immutable minter;
+
+    // tokenomics params address
     address public immutable tokenomicsParams;
 
     modifier onlyAdmin() {
