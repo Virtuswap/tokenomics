@@ -14,8 +14,8 @@ const config: HardhatUserConfig = {
         },
         mumbai: {
             chainId: 80001,
-            url: POLYGON_MUMBAI_RPC_PROVIDER,
-            accounts: [`${PRIVATE_KEY}`],
+            url: POLYGON_MUMBAI_RPC_PROVIDER !== undefined ? `${POLYGON_MUMBAI_RPC_PROVIDER}` : '',
+            accounts: PRIVATE_KEY !== undefined ? [`${PRIVATE_KEY}`] : [],
         },
     },
     etherscan: {
