@@ -377,14 +377,16 @@ contract vStaker is IvStaker {
                 )
                 : _calculateStateBefore(who);
         return
-            uint256(
-                unwrap(
-                    _senderRewardPoints
-                        .mul(_totalVrswAvailable)
-                        .div(_totalRewardPoints)
-                        .sub(rewardsClaimed[who])
-                )
-            );
+            unwrap(_totalRewardPoints) == 0
+                ? 0
+                : uint256(
+                    unwrap(
+                        _senderRewardPoints
+                            .mul(_totalVrswAvailable)
+                            .div(_totalRewardPoints)
+                            .sub(rewardsClaimed[who])
+                    )
+                );
     }
 
     /**

@@ -18,10 +18,41 @@ describe('vGlobalMinter 1', function () {
         vrsw = await ethers.getContractAt('Vrsw', await minter.vrsw());
         gVrsw = await ethers.getContractAt('GVrsw', await minter.gVrsw());
 
+        await expect(
+            minter.newVesting(accounts[0].address, '1', '2', '3')
+        ).to.revertedWith('too early');
+        await expect(
+            minter.arbitraryTransfer(accounts[0].address, '1')
+        ).to.revertedWith('too early');
+
         // skip time to emissionStart
         await time.setNextBlockTimestamp(
             (await minter.emissionStartTs()).add(60)
         );
+    });
+
+    it('addChainMinter can be called only by owner', async () => {
+        await expect(
+            minter.connect(accounts[1]).addChainMinter()
+        ).to.revertedWith('Ownable: caller is not the owner');
+    });
+
+    it('nextEpochTransfer can be called only by owner', async () => {
+        await expect(
+            minter.connect(accounts[1]).nextEpochTransfer()
+        ).to.revertedWith('Ownable: caller is not the owner');
+    });
+
+    it('setEpochParams can be called only by owner', async () => {
+        await expect(
+            minter.connect(accounts[1]).setEpochParams('1', '1')
+        ).to.revertedWith('Ownable: caller is not the owner');
+    });
+
+    it('gVRSW.mint can be called only by global minter', async () => {
+        await expect(
+            gVrsw.mint(accounts[0].address, ethers.utils.parseEther('1000'))
+        ).to.revertedWith('Only minter');
     });
 
     it('arbitraryTransfer works', async () => {
@@ -120,9 +151,15 @@ describe('vGlobalMinter 1', function () {
     });
 
     it('setEpochParams works', async () => {
+        // with epoch transition call
         await minter.setEpochParams('1296000', '648000');
         expect(await minter.nextEpochPreparationTime()).to.be.equal('648000');
         expect(await minter.nextEpochDuration()).to.be.equal('1296000');
+
+        // without epoch transition call
+        await minter.setEpochParams('1296', '648');
+        expect(await minter.nextEpochPreparationTime()).to.be.equal('648');
+        expect(await minter.nextEpochDuration()).to.be.equal('1296');
     });
 
     it('setEpochParams fails when preparation time is more than epoch duration', async () => {
@@ -138,6 +175,20 @@ describe('vGlobalMinter 1', function () {
         await expect(minter.setEpochParams('2', '0')).to.revertedWith(
             'must be greater than zero'
         );
+    });
+
+    it('epochTransition works when epoch params has changed', async () => {
+        await minter.setEpochParams('1296', '648');
+        await time.setNextBlockTimestamp(
+            ethers.BigNumber.from(await time.latest())
+                .add(await minter.epochDuration())
+                .add('650')
+        );
+        expect(await minter.nextEpochPreparationTime()).to.be.equal('648');
+        expect(await minter.nextEpochDuration()).to.be.equal('1296');
+        await minter.nextEpochTransfer();
+        expect(await minter.nextEpochPreparationTime()).to.be.equal('0');
+        expect(await minter.nextEpochDuration()).to.be.equal('0');
     });
 });
 

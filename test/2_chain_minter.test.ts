@@ -14,6 +14,7 @@ import {
 import { time } from '@nomicfoundation/hardhat-network-helpers';
 
 describe('vChainMinter 1', function () {
+    let stakerFactory: VStakerFactory;
     let minter: VChainMinter;
     let vrsw: Vrsw;
     let globalMinter: VGlobalMinter;
@@ -24,7 +25,10 @@ describe('vChainMinter 1', function () {
         accounts = await ethers.getSigners();
         await deployments.fixture(['all']);
         minter = await ethers.getContract('chainMinter');
+        stakerFactory = await ethers.getContract('stakerFactory');
         globalMinter = await ethers.getContract('globalMinter');
+
+        await minter.setStakerFactory(stakerFactory.address);
 
         vrsw = await ethers.getContractAt('Vrsw', await minter.vrsw());
 
@@ -33,10 +37,63 @@ describe('vChainMinter 1', function () {
         // get tokens for the next epoch
         await globalMinter.nextEpochTransfer();
 
+        await expect(
+            minter.transferRewards(accounts[0].address, '1')
+        ).to.revertedWith('too early');
+
         // skip time to emissionStart
         await time.setNextBlockTimestamp(
             (await globalMinter.emissionStartTs()).add(60)
         );
+    });
+
+    it('mintGVrsw fails when called with zero amount', async () => {
+        await expect(
+            minter.mintGVrsw(accounts[1].address, '0')
+        ).to.revertedWith('zero amount');
+    });
+
+    it('mintGVrsw fails when called not by staker', async () => {
+        await expect(minter.mintGVrsw(accounts[1].address, '1')).to.reverted;
+    });
+
+    it('burnGVrsw fails when called with zero amount', async () => {
+        await expect(
+            minter.burnGVrsw(accounts[1].address, '0')
+        ).to.revertedWith('zero amount');
+    });
+
+    it('burnGVrsw fails when called not by staker', async () => {
+        await expect(minter.burnGVrsw(accounts[1].address, '1')).to.reverted;
+    });
+
+    it('transferRewards fails when called with zero amount', async () => {
+        await expect(
+            minter.transferRewards(accounts[1].address, '0')
+        ).to.revertedWith('zero amount');
+    });
+
+    it('transferRewards fails when called not by staker', async () => {
+        await expect(minter.transferRewards(accounts[1].address, '1')).to
+            .reverted;
+    });
+
+    it('prepareForNextEpoch fails when is called not by owner', async () => {
+        await expect(
+            minter.connect(accounts[1]).prepareForNextEpoch('1')
+        ).to.revertedWith('Ownable: caller is not the owner');
+    });
+
+    it('setStakerFactory fails when is called not by owner', async () => {
+        await expect(
+            minter.connect(accounts[1]).setStakerFactory(accounts[1].address)
+        ).to.revertedWith('Ownable: caller is not the owner');
+    });
+
+    it('setEpochParams fails when is called not by owner', async () => {
+        await expect(
+            minter.connect(accounts[1]).setEpochParams('1', '1')
+        ).to.revertedWith('Ownable: caller is not the owner');
     });
 
     it('setEpochParams works', async () => {
@@ -77,6 +134,7 @@ describe('vChainMinter 1', function () {
                 ).sub(await minter.epochPreparationTime())
             )
         );
+
         await minter.prepareForNextEpoch(balanceAfter);
         const balanceAfter2 = await vrsw.balanceOf(accounts[0].address);
         expect(balanceAfter2).to.be.below(balanceAfter);
@@ -139,6 +197,10 @@ describe('vChainMinter: allocation points', function () {
     });
 
     it('setAllocationPoints works', async () => {
+        // with epoch parameters changed
+
+        await minter.setEpochParams('100', '50');
+
         await minter.setAllocationPoints(
             [staker1.address, staker2.address],
             ['10', '90']
@@ -216,6 +278,15 @@ describe('vChainMinter: allocation points', function () {
                     ['0', '0', '100']
                 )
         ).to.revertedWith('Ownable: caller is not the owner');
+    });
+
+    it('setAllocationPoints fails when sum is more than 100%', async () => {
+        await expect(
+            minter.setAllocationPoints(
+                [staker1.address, staker2.address, staker3.address],
+                ['50', '40', '30']
+            )
+        ).to.revertedWith('sum must be less than 100%');
     });
 
     it('setAllocationPoints fails when called not for staker', async () => {
