@@ -24,11 +24,12 @@ const deployCore: DeployFunction = async function (
 
     let timestamp: number;
     if (chainId == 31337) {
-        timestamp = (await time.latest()) + 604800; // 1 week after now
+        timestamp = (await time.latest()) + 100;
     } else {
         const blockNumBefore = await hre.ethers.provider.getBlockNumber();
         const blockBefore = await hre.ethers.provider.getBlock(blockNumBefore);
-        timestamp = blockBefore.timestamp;
+        // CHANGEME
+        timestamp = blockBefore.timestamp + 600; // 10 minute after now
     }
 
     const globalMinter = await deploy('globalMinter', {
@@ -76,9 +77,31 @@ const deployCore: DeployFunction = async function (
         chainMinter.address
     );
 
+    const gVrswTokenContract = await hre.ethers.getContractAt(
+        'GVrsw',
+        gVrswTokenAddress
+    );
+
     log('Core contracts deployed!');
     log('Setting stakerFactory for minter...');
     await chainMinterContract.setStakerFactory(stakerFactory.address);
+    if ((await gVrswTokenContract.balanceOf(chainMinter.address)) == '0') {
+        log('Minting gVRSW tokens for chain minter...');
+        await (await globalMinterContract.addChainMinter()).wait();
+        console.log(await gVrswTokenContract.balanceOf(deployer));
+        await gVrswTokenContract.transfer(
+            chainMinter.address,
+            hre.ethers.utils.parseEther('1000000000')
+        );
+    }
+    if (chainId == 80001) {
+        // for testing purposes
+        log('Setting epochParams...');
+        // CHANGEME
+        await globalMinterContract.setEpochParams('86400', '43200');
+        // CHANGEME
+        await chainMinterContract.setEpochParams('86400', '43200');
+    }
     log('Done!');
 
     if (
