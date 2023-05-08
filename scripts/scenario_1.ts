@@ -84,7 +84,8 @@ async function main() {
     ];
 
     const signer = await ethers.getSigner(deployer);
-    stakers.slice(0, -1).forEach(async function (stakerAddr, index) {
+    var index = 0;
+    for (var stakerAddr of stakers.slice(0, -1)) {
         const staker = await ethers.getContractAt('vStaker', stakerAddr);
         console.log(
             `Staking ${amountToStake[index]} LP tokens to ${stakerAddr}`
@@ -103,7 +104,8 @@ async function main() {
             }
             process.exitCode = 1;
         }
-    });
+        ++index;
+    }
 
     const vrswStaker = await ethers.getContractAt('vStaker', stakers.at(-1));
     console.log(
@@ -128,6 +130,65 @@ async function main() {
         process.exitCode = 1;
     }
 
+    console.log('Sending vrsw for testing...');
+    await (
+        await globalMinter.arbitraryTransfer(deployer, amountToStake.at(-1))
+    ).wait();
+
+    console.log(
+        `Locking ${amountToStake.at(-1)} VRSW tokens to ${stakers.at(-1)}`
+    );
+    try {
+        const erc20 = new ethers.Contract(
+            await globalMinter.vrsw(),
+            erc20ABI,
+            signer
+        );
+        await (
+            await erc20.approve(vrswStaker.address, amountToStake.at(-1))
+        ).wait();
+        await (await vrswStaker.lockVrsw(amountToStake.at(-1), 5)).wait();
+    } catch (e: any) {
+        if (e.message.toLowerCase().includes('too early')) {
+            console.log(`VRSW minting hasn't started yet`);
+        } else {
+            console.log(e);
+        }
+        process.exitCode = 1;
+    }
+
+    console.log(`Locking staked VRSW`);
+    await (await vrswStaker.lockStakedVrsw(amountToStake.at(-1).div(2), 3)).wait();
+
+    console.log(`Unlocking VRSW position #1...`);
+    console.log(await vrswStaker.checkLock(deployer));
+    await (await vrswStaker.unlockVrsw(deployer, 1));
+    console.log(`Unlocking VRSW position #2...`);
+    console.log(await vrswStaker.checkLock(deployer));
+    await (await vrswStaker.unlockVrsw(deployer, 1));
+    index = 0;
+    for (var stakerAddr of stakers.slice(0, -1)) {
+        const staker = await ethers.getContractAt('vStaker', stakerAddr);
+        console.log(
+            `Unstaking ${amountToStake[index]} LP tokens from ${stakerAddr}`
+        );
+        await (await staker.unstakeLp(amountToStake[index])).wait();
+        ++index;
+    }
+
+    console.log(`unstaking vrsw`);
+    await vrswStaker.unstakeVrsw(amountToStake.at(-1).div(4));
+    console.log(`claiming rewards from VRSW staker`);
+    await vrswStaker.claimRewards();
+    index = 0;
+    for (var stakerAddr of stakers.slice(0, -1)) {
+        const staker = await ethers.getContractAt('vStaker', stakerAddr);
+        console.log(
+            `Claiming rewards from ${stakerAddr}`
+        );
+        await (await staker.claimRewards()).wait();
+        ++index;
+    }
     for (var staker of stakers) {
         console.log(
             `Rewards in ${staker} = ${await (
