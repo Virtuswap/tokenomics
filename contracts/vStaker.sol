@@ -5,7 +5,6 @@ pragma solidity ^0.8.0;
 import {SD59x18, sd, unwrap, exp, UNIT, ZERO} from '@prb/math/src/SD59x18.sol';
 import '@openzeppelin/contracts/token/ERC20/IERC20.sol';
 import '@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol';
-import '@openzeppelin/contracts/utils/math/Math.sol';
 import './types.sol';
 import './interfaces/IvStaker.sol';
 import './interfaces/IvChainMinter.sol';

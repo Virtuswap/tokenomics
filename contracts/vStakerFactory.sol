@@ -3,9 +3,7 @@
 pragma solidity ^0.8.0;
 
 import './vStaker.sol';
-import './interfaces/IvStaker.sol';
 import './interfaces/IvStakerFactory.sol';
-import './types.sol';
 
 contract vStakerFactory is IvStakerFactory {
     // mapping of lp tokens to the corresponding staker
