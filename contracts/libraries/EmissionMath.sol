@@ -14,7 +14,6 @@ library EmissionMath {
     SD59x18 public constant V = SD59x18.wrap(3.4723183693e18);
     SD59x18 public constant v = SD59x18.wrap(-5.847184793e9);
     uint128 public constant TOTAL_ALGO_EMISSION = 500000000 * 1e18;
-    uint128 public constant TOTAL_PROJECT_EMISSION = 500000000 * 1e18;
     uint128 public constant TEN_YEARS = (365 * 8 + 366 * 2) * 24 * 60 * 60;
 
     /**
