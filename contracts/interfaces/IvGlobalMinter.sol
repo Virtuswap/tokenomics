@@ -7,12 +7,6 @@ pragma solidity ^0.8.0;
 */
 interface IvGlobalMinter {
     /**
-     * @notice Emitted when a new staker factory is set.
-     * @param stakerFactoryAddress is the address of the new staker factory.
-     */
-    event NewStakerFactory(address stakerFactoryAddress);
-
-    /**
      * @notice Emitted when a new vVestingWallet contract is created.
      * @param vestingWallet The address of the vesting wallet.
      * @param beneficiary The address of the beneficiary of the vesting contract.
@@ -25,13 +19,6 @@ interface IvGlobalMinter {
         uint256 startTs,
         uint256 duration
     );
-
-    /**
-     * @notice Emitted when rewards are transferred to an address.
-     * @param to The address receiving the rewards.
-     * @param amount The amount of rewards transferred.
-     */
-    event TransferRewards(address to, uint256 amount);
 
     /**
      * @notice Adds new vChainMinter. Should be called whenever new vChainMinter
