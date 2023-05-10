@@ -94,6 +94,7 @@ contract vGlobalMinter is IvGlobalMinter, Ownable {
             )
         );
         vestingWallets.push(vestingWallet);
+        unlockedBalance -= amount;
         SafeERC20.safeTransfer(IERC20(vrsw), vestingWallet, amount);
         emit NewVesting(vestingWallet, beneficiary, startTs, duration);
     }
@@ -105,6 +106,7 @@ contract vGlobalMinter is IvGlobalMinter, Ownable {
     ) external override onlyOwner {
         require(block.timestamp >= emissionStartTs, 'too early');
         require(amount <= unlockedBalance, 'not enough unlocked tokens');
+        unlockedBalance -= amount;
         SafeERC20.safeTransfer(IERC20(vrsw), to, amount);
     }
 
