@@ -19,12 +19,6 @@ contract vGlobalMinter is IvGlobalMinter, Ownable {
     // list of all vesting wallets that were created by the minter
     address[] public vestingWallets;
 
-    // VRSW token
-    Vrsw public vrsw;
-
-    // gVRSW token
-    GVrsw public gVrsw;
-
     // VRSW algorithmic distribution is divided into epochs
 
     // the timestamp of the current epoch start
@@ -52,6 +46,12 @@ contract vGlobalMinter is IvGlobalMinter, Ownable {
 
     // timestamp of VRSW emission start
     uint256 public immutable emissionStartTs;
+
+    // VRSW token
+    Vrsw public immutable vrsw;
+
+    // gVRSW token
+    GVrsw public immutable gVrsw;
 
     /**
      * @dev Constructor function
