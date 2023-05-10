@@ -58,6 +58,10 @@ contract vGlobalMinter is IvGlobalMinter, Ownable {
      * @param _emissionStartTs Timestamp of the start of emission
      */
     constructor(uint256 _emissionStartTs) {
+        require(
+            _emissionStartTs > block.timestamp,
+            'invalid emission start timestamp'
+        );
         emissionStartTs = _emissionStartTs;
         unlockedBalance = 5e8 * 1e18;
         epochDuration = 4 weeks;
