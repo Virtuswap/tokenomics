@@ -26,6 +26,7 @@ contract vTokenomicsParams is IvTokenomicsParams, Ownable {
         alpha = UNIT;
         gamma = UNIT;
         beta = SD59x18.wrap(0.5e18);
+        emit UpdateTokenomicsParams(r, b, alpha, beta, gamma);
     }
 
     /// @inheritdoc IvTokenomicsParams
