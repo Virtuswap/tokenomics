@@ -64,7 +64,7 @@ contract vStakerFactory is IvStakerFactory {
     /// @inheritdoc IvStakerFactory
     function createPoolStaker(
         address _lpToken
-    ) external override returns (address staker) {
+    ) external override onlyAdmin returns (address staker) {
         require(_lpToken != address(0), 'zero address');
         require(stakers[_lpToken] == address(0), 'staker exists');
 
