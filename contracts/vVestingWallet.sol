@@ -36,7 +36,7 @@ contract vVestingWallet {
         address erc20Token,
         uint64 startTimestamp,
         uint64 durationSeconds
-    ) payable {
+    ) {
         require(
             beneficiaryAddress != address(0),
             'vVestingWallet: beneficiary is zero address'
