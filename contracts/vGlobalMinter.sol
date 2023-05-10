@@ -141,8 +141,6 @@ contract vGlobalMinter is IvGlobalMinter, Ownable {
             _epochPreparationTime < _epochDuration,
             'preparationTime >= epochDuration'
         );
-        if (block.timestamp >= startEpochTime + epochDuration)
-            _epochTransition();
         (nextEpochPreparationTime, nextEpochDuration) = (
             _epochPreparationTime,
             _epochDuration
