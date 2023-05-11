@@ -2,7 +2,7 @@
 
 pragma solidity ^0.8.0;
 
-import '@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol';
+import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 
 /**
  * @title VestingWallet
@@ -39,7 +39,7 @@ contract vVestingWallet {
     ) {
         require(
             beneficiaryAddress != address(0),
-            'vVestingWallet: beneficiary is zero address'
+            "vVestingWallet: beneficiary is zero address"
         );
         _erc20Token = erc20Token;
         _beneficiary = beneficiaryAddress;

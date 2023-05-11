@@ -2,13 +2,13 @@
 
 pragma solidity ^0.8.0;
 
-import '@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol';
-import '@openzeppelin/contracts/access/Ownable.sol';
-import './libraries/EmissionMath.sol';
-import './interfaces/IvGlobalMinter.sol';
-import './vVestingWallet.sol';
-import './Vrsw.sol';
-import './GVrsw.sol';
+import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
+import "@openzeppelin/contracts/access/Ownable.sol";
+import "./libraries/EmissionMath.sol";
+import "./interfaces/IvGlobalMinter.sol";
+import "./vVestingWallet.sol";
+import "./Vrsw.sol";
+import "./GVrsw.sol";
 
 /**
  * @title vGlobalMinter
@@ -60,7 +60,7 @@ contract vGlobalMinter is IvGlobalMinter, Ownable {
     constructor(uint256 _emissionStartTs) {
         require(
             _emissionStartTs > block.timestamp,
-            'invalid emission start timestamp'
+            "invalid emission start timestamp"
         );
         emissionStartTs = _emissionStartTs;
         unlockedBalance = 5e8 * 1e18;
@@ -83,8 +83,8 @@ contract vGlobalMinter is IvGlobalMinter, Ownable {
         uint256 duration,
         uint256 amount
     ) external override onlyOwner returns (address vestingWallet) {
-        require(block.timestamp >= emissionStartTs, 'too early');
-        require(amount <= unlockedBalance, 'not enough unlocked tokens');
+        require(block.timestamp >= emissionStartTs, "too early");
+        require(amount <= unlockedBalance, "not enough unlocked tokens");
         vestingWallet = address(
             new vVestingWallet(
                 beneficiary,
@@ -104,8 +104,8 @@ contract vGlobalMinter is IvGlobalMinter, Ownable {
         address to,
         uint256 amount
     ) external override onlyOwner {
-        require(block.timestamp >= emissionStartTs, 'too early');
-        require(amount <= unlockedBalance, 'not enough unlocked tokens');
+        require(block.timestamp >= emissionStartTs, "too early");
+        require(amount <= unlockedBalance, "not enough unlocked tokens");
         unlockedBalance -= amount;
         SafeERC20.safeTransfer(IERC20(vrsw), to, amount);
     }
@@ -119,7 +119,7 @@ contract vGlobalMinter is IvGlobalMinter, Ownable {
         }
         require(
             block.timestamp + epochPreparationTime >= currentEpochEnd,
-            'Too early'
+            "Too early"
         );
         uint256 amountToTransfer = EmissionMath.calculateAlgorithmicEmission(
             currentEpochEnd - emissionStartTs,
@@ -137,11 +137,11 @@ contract vGlobalMinter is IvGlobalMinter, Ownable {
     ) external override onlyOwner {
         require(
             _epochPreparationTime > 0 && _epochDuration > 0,
-            'must be greater than zero'
+            "must be greater than zero"
         );
         require(
             _epochPreparationTime < _epochDuration,
-            'preparationTime >= epochDuration'
+            "preparationTime >= epochDuration"
         );
         (nextEpochPreparationTime, nextEpochDuration) = (
             _epochPreparationTime,

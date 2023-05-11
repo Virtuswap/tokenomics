@@ -2,8 +2,8 @@
 
 pragma solidity ^0.8.0;
 
-import './vStaker.sol';
-import './interfaces/IvStakerFactory.sol';
+import "./vStaker.sol";
+import "./interfaces/IvStakerFactory.sol";
 
 contract vStakerFactory is IvStakerFactory {
     // mapping of lp tokens to the corresponding staker
@@ -28,7 +28,7 @@ contract vStakerFactory is IvStakerFactory {
     address public immutable tokenomicsParams;
 
     modifier onlyAdmin() {
-        require(msg.sender == admin, 'OA');
+        require(msg.sender == admin, "OA");
         _;
     }
 
@@ -65,8 +65,8 @@ contract vStakerFactory is IvStakerFactory {
     function createPoolStaker(
         address _lpToken
     ) external override onlyAdmin returns (address staker) {
-        require(_lpToken != address(0), 'zero address');
-        require(stakers[_lpToken] == address(0), 'staker exists');
+        require(_lpToken != address(0), "zero address");
+        require(stakers[_lpToken] == address(0), "staker exists");
 
         staker = address(
             new vStaker(_lpToken, vrswToken, minter, tokenomicsParams)
@@ -89,7 +89,7 @@ contract vStakerFactory is IvStakerFactory {
     function acceptAdmin() external override {
         require(
             msg.sender != address(0) && msg.sender == pendingAdmin,
-            'Only for pending admin'
+            "Only for pending admin"
         );
         admin = pendingAdmin;
         pendingAdmin = address(0);

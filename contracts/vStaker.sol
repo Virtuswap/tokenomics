@@ -2,13 +2,13 @@
 
 pragma solidity ^0.8.0;
 
-import {SD59x18, sd, unwrap, exp, UNIT, ZERO} from '@prb/math/src/SD59x18.sol';
-import '@openzeppelin/contracts/token/ERC20/IERC20.sol';
-import '@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol';
-import './types.sol';
-import './interfaces/IvStaker.sol';
-import './interfaces/IvChainMinter.sol';
-import './interfaces/IvTokenomicsParams.sol';
+import {SD59x18, sd, unwrap, exp, UNIT, ZERO} from "@prb/math/src/SD59x18.sol";
+import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
+import "./types.sol";
+import "./interfaces/IvStaker.sol";
+import "./interfaces/IvChainMinter.sol";
+import "./interfaces/IvTokenomicsParams.sol";
 
 contract vStaker is IvStaker {
     /**
@@ -92,8 +92,8 @@ contract vStaker is IvStaker {
 
     /// @inheritdoc IvStaker
     function stakeVrsw(uint256 amount) external override {
-        require(amount > 0, 'insufficient amount');
-        require(block.timestamp >= emissionStartTs, 'too early');
+        require(amount > 0, "insufficient amount");
+        require(block.timestamp >= emissionStartTs, "too early");
 
         _updateStateBefore(msg.sender);
         _stakeUnlocked(msg.sender, amount);
@@ -111,9 +111,9 @@ contract vStaker is IvStaker {
 
     /// @inheritdoc IvStaker
     function stakeLp(uint256 amount) external override {
-        require(lpToken != address(0), 'can stake only vrsw');
-        require(amount > 0, 'zero amount');
-        require(block.timestamp >= emissionStartTs, 'too early');
+        require(lpToken != address(0), "can stake only vrsw");
+        require(amount > 0, "zero amount");
+        require(block.timestamp >= emissionStartTs, "too early");
 
         _updateStateBefore(msg.sender);
         lpStake[msg.sender] = lpStake[msg.sender].add(sd(int256(amount)));
@@ -130,7 +130,7 @@ contract vStaker is IvStaker {
 
     /// @inheritdoc IvStaker
     function claimRewards() external override {
-        require(block.timestamp >= emissionStartTs, 'too early');
+        require(block.timestamp >= emissionStartTs, "too early");
         _updateStateBefore(msg.sender);
         uint256 amountToClaim = _calculateAccruedRewards(msg.sender, true);
         rewardsClaimed[msg.sender] = rewardsClaimed[msg.sender].add(
@@ -163,11 +163,11 @@ contract vStaker is IvStaker {
 
     /// @inheritdoc IvStaker
     function unstakeLp(uint256 amount) external override {
-        require(lpToken != address(0), 'can stake only vrsw');
-        require(block.timestamp >= emissionStartTs, 'too early');
+        require(lpToken != address(0), "can stake only vrsw");
+        require(block.timestamp >= emissionStartTs, "too early");
         require(
             int256(amount) <= unwrap(lpStake[msg.sender]) && amount > 0,
-            'insufficient amount'
+            "insufficient amount"
         );
         _updateStateBefore(msg.sender);
         lpStake[msg.sender] = lpStake[msg.sender].sub(sd(int256(amount)));
@@ -180,12 +180,12 @@ contract vStaker is IvStaker {
 
     /// @inheritdoc IvStaker
     function unstakeVrsw(uint256 amount) external override {
-        require(block.timestamp >= emissionStartTs, 'too early');
+        require(block.timestamp >= emissionStartTs, "too early");
         Stake[] storage senderStakes = stakes[msg.sender];
-        require(senderStakes.length > 0, 'no stakes');
+        require(senderStakes.length > 0, "no stakes");
         require(
             amount > 0 && amount <= uint256(unwrap(senderStakes[0].amount)),
-            'insufficient amount'
+            "insufficient amount"
         );
 
         _updateStateBefore(msg.sender);
@@ -200,14 +200,14 @@ contract vStaker is IvStaker {
 
     /// @inheritdoc IvStaker
     function lockVrsw(uint256 amount, uint256 lockDuration) external override {
-        require(block.timestamp >= emissionStartTs, 'too early');
+        require(block.timestamp >= emissionStartTs, "too early");
         Stake[] storage senderStakes = stakes[msg.sender];
         if (senderStakes.length == 0) {
             senderStakes.push(Stake(0, 0, ZERO, ZERO));
         }
 
-        require(amount > 0, 'insufficient amount');
-        require(lockDuration > 0, 'insufficient lock duration');
+        require(amount > 0, "insufficient amount");
+        require(lockDuration > 0, "insufficient lock duration");
 
         _updateStateBefore(msg.sender);
         _newStakePosition(amount, lockDuration);
@@ -228,14 +228,14 @@ contract vStaker is IvStaker {
         uint256 amount,
         uint256 lockDuration
     ) external override {
-        require(block.timestamp >= emissionStartTs, 'too early');
+        require(block.timestamp >= emissionStartTs, "too early");
         Stake[] storage senderStakes = stakes[msg.sender];
-        require(senderStakes.length > 0, 'no stakes');
+        require(senderStakes.length > 0, "no stakes");
         require(
             amount > 0 && amount <= uint256(unwrap(senderStakes[0].amount)),
-            'insufficient amount'
+            "insufficient amount"
         );
-        require(lockDuration > 0, 'insufficient lock duration');
+        require(lockDuration > 0, "insufficient lock duration");
 
         _updateStateBefore(msg.sender);
         senderStakes[0].amount = senderStakes[0].amount.sub(sd(int256(amount)));
@@ -272,13 +272,13 @@ contract vStaker is IvStaker {
 
     /// @inheritdoc IvStaker
     function unlockVrsw(address who, uint256 position) external override {
-        require(block.timestamp >= emissionStartTs, 'too early');
-        require(position > 0, 'invalid position');
+        require(block.timestamp >= emissionStartTs, "too early");
+        require(position > 0, "invalid position");
 
         Stake memory userStake = stakes[who][position];
         require(
             userStake.startTs + userStake.lockDuration <= block.timestamp,
-            'locked'
+            "locked"
         );
 
         uint256 vrswToUnlock = uint256(unwrap(userStake.amount));

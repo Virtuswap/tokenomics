@@ -2,7 +2,7 @@
 
 pragma solidity ^0.8.0;
 
-import '../types.sol';
+import "../types.sol";
 
 /**
  * @title Interface for vStaker contract for staking VRSW and LP tokens.

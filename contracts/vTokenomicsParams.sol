@@ -2,9 +2,9 @@
 
 pragma solidity ^0.8.0;
 
-import {SD59x18, sd, unwrap, exp, UNIT, ZERO} from '@prb/math/src/SD59x18.sol';
-import '@openzeppelin/contracts/access/Ownable.sol';
-import './interfaces/IvTokenomicsParams.sol';
+import {SD59x18, sd, unwrap, exp, UNIT, ZERO} from "@prb/math/src/SD59x18.sol";
+import "@openzeppelin/contracts/access/Ownable.sol";
+import "./interfaces/IvTokenomicsParams.sol";
 
 contract vTokenomicsParams is IvTokenomicsParams, Ownable {
     // Ten years in seconds starting from 2023

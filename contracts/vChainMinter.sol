@@ -2,14 +2,14 @@
 
 pragma solidity ^0.8.0;
 
-import '@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol';
-import '@openzeppelin/contracts/access/Ownable.sol';
-import '@openzeppelin/contracts/utils/math/Math.sol';
-import './libraries/EmissionMath.sol';
-import './interfaces/IvStakerFactory.sol';
-import './interfaces/IvStaker.sol';
-import './interfaces/IvChainMinter.sol';
-import './interfaces/IvTokenomicsParams.sol';
+import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
+import "@openzeppelin/contracts/access/Ownable.sol";
+import "@openzeppelin/contracts/utils/math/Math.sol";
+import "./libraries/EmissionMath.sol";
+import "./interfaces/IvStakerFactory.sol";
+import "./interfaces/IvStaker.sol";
+import "./interfaces/IvChainMinter.sol";
+import "./interfaces/IvTokenomicsParams.sol";
 
 /**
  * @title vChainMinter
@@ -108,7 +108,7 @@ contract vChainMinter is IvChainMinter, Ownable {
         uint256 currentEpochEnd = startEpochTime + epochDuration;
         require(
             block.timestamp + epochPreparationTime >= currentEpochEnd,
-            'Too early'
+            "Too early"
         );
         nextEpochBalance = nextBalance;
         SafeERC20.safeTransferFrom(
@@ -134,11 +134,11 @@ contract vChainMinter is IvChainMinter, Ownable {
     ) external override onlyOwner {
         require(
             _epochPreparationTime > 0 && _epochDuration > 0,
-            'must be greater than zero'
+            "must be greater than zero"
         );
         require(
             _epochPreparationTime < _epochDuration,
-            'preparationTime >= epochDuration'
+            "preparationTime >= epochDuration"
         );
         (nextEpochPreparationTime, nextEpochDuration) = (
             _epochPreparationTime,
@@ -163,7 +163,7 @@ contract vChainMinter is IvChainMinter, Ownable {
                 IvStakerFactory(_stakerFactory).getPoolStaker(
                     IvStaker(_stakers[i]).lpToken()
                 ) == _stakers[i],
-                'invalid staker'
+                "invalid staker"
             );
 
             stakerInfo = stakers[_stakers[i]];
@@ -181,20 +181,20 @@ contract vChainMinter is IvChainMinter, Ownable {
         }
         require(
             uint256(_totalAllocationPoints) <= ALLOCATION_POINTS_FACTOR,
-            'sum must be less than 100%'
+            "sum must be less than 100%"
         );
         totalAllocationPoints = uint256(_totalAllocationPoints);
     }
 
     /// @inheritdoc IvChainMinter
     function transferRewards(address to, uint256 amount) external override {
-        require(block.timestamp >= emissionStartTs, 'too early');
-        require(amount > 0, 'zero amount');
+        require(block.timestamp >= emissionStartTs, "too early");
+        require(amount > 0, "zero amount");
         require(
             IvStakerFactory(stakerFactory).getPoolStaker(
                 IvStaker(msg.sender).lpToken()
             ) == msg.sender,
-            'invalid staker'
+            "invalid staker"
         );
         if (block.timestamp >= startEpochTime + epochDuration)
             _epochTransition();
@@ -208,7 +208,7 @@ contract vChainMinter is IvChainMinter, Ownable {
 
         require(
             amount <= stakerInfo.totalAllocated - stakerInfo.totalTransferred,
-            'not enough tokens'
+            "not enough tokens"
         );
 
         stakerInfo.totalTransferred += uint128(amount);
@@ -219,24 +219,24 @@ contract vChainMinter is IvChainMinter, Ownable {
 
     /// @inheritdoc IvChainMinter
     function mintGVrsw(address to, uint256 amount) external override {
-        require(amount > 0, 'zero amount');
+        require(amount > 0, "zero amount");
         require(
             IvStakerFactory(stakerFactory).getPoolStaker(
                 IvStaker(msg.sender).lpToken()
             ) == msg.sender,
-            'invalid staker'
+            "invalid staker"
         );
         SafeERC20.safeTransfer(IERC20(gVrsw), to, amount);
     }
 
     /// @inheritdoc IvChainMinter
     function burnGVrsw(address to, uint256 amount) external override {
-        require(amount > 0, 'zero amount');
+        require(amount > 0, "zero amount");
         require(
             IvStakerFactory(stakerFactory).getPoolStaker(
                 IvStaker(msg.sender).lpToken()
             ) == msg.sender,
-            'invalid staker'
+            "invalid staker"
         );
         SafeERC20.safeTransferFrom(IERC20(gVrsw), to, address(this), amount);
     }
