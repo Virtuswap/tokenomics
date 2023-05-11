@@ -130,6 +130,7 @@ contract vChainMinter is IvChainMinter, Ownable {
         address _newStakerFactory
     ) external override onlyOwner {
         require(_newStakerFactory != address(0), "zero address");
+        require(stakerFactory == address(0), "staker factory can be set once");
         stakerFactory = _newStakerFactory;
         emit NewStakerFactory(_newStakerFactory);
     }
