@@ -13,35 +13,35 @@ interface IvStaker {
      *@param who Address of the account that stakes the tokens.
      *@param amount Amount of VRSW tokens being staked.
      */
-    event StakeVrsw(address who, uint256 amount);
+    event StakeVrsw(address indexed who, uint256 amount);
 
     /**
      *@notice Emitted when who stakes amount of LP tokens.
      *@param who Address of the account that stakes the tokens.
      *@param amount Amount of LP tokens being staked.
      */
-    event StakeLp(address who, uint256 amount);
+    event StakeLp(address indexed who, uint256 amount);
 
     /**
      *@notice Emitted when who claims amount of accrued rewards.
      *@param who Address of the account that claims the rewards.
      *@param amount Amount of rewards being claimed.
      */
-    event RewardsClaimed(address who, uint256 amount);
+    event RewardsClaimed(address indexed who, uint256 amount);
 
     /**
      *@notice Emitted when who unstakes amount of LP tokens.
      *@param who Address of the account that unstakes the tokens.
      *@param amount Amount of LP tokens being unstaked.
      */
-    event UnstakeLp(address who, uint256 amount);
+    event UnstakeLp(address indexed who, uint256 amount);
 
     /**
      *@notice Emitted when who unstakes amount of VRSW tokens.
      *@param who Address of the account that unstakes the tokens.
      *@param amount Amount of VRSW tokens being unstaked.
      */
-    event UnstakeVrsw(address who, uint256 amount);
+    event UnstakeVrsw(address indexed who, uint256 amount);
 
     /**
      *@notice Emitted when who locks amount of VRSW tokens for lockDuration seconds.
@@ -49,7 +49,7 @@ interface IvStaker {
      *@param amount Amount of VRSW tokens being locked.
      *@param lockDuration Duration in seconds for which the tokens are locked.
      */
-    event LockVrsw(address who, uint256 amount, uint256 lockDuration);
+    event LockVrsw(address indexed who, uint256 amount, uint256 lockDuration);
 
     /**
      *@notice Emitted when who locks amount of staked VRSW tokens for lockDuration seconds.
@@ -57,14 +57,14 @@ interface IvStaker {
      *@param amount Amount of staked VRSW tokens being locked.
      *@param lockDuration Duration in seconds for which the tokens are locked.
      */
-    event LockStakedVrsw(address who, uint256 amount, uint256 lockDuration);
+    event LockStakedVrsw(address indexed who, uint256 amount, uint256 lockDuration);
 
     /**
      *@notice Emitted when who unlocks amount of VRSW tokens.
      *@param who Address of the account that unlocks the tokens.
      *@param amount Amount of VRSW tokens being unlocked.
      */
-    event UnlockVrsw(address who, uint256 amount);
+    event UnlockVrsw(address indexed who, uint256 amount);
 
     /**
      * @notice Getter for lpToken of current staker.

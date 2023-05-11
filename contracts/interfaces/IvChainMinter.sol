@@ -17,7 +17,7 @@ interface IvChainMinter {
      * @param to The address receiving the rewards.
      * @param amount The amount of rewards transferred.
      */
-    event TransferRewards(address to, uint256 amount);
+    event TransferRewards(address indexed to, uint256 amount);
 
     /**
      * @notice Changes minting epoch duration and preparation time.
