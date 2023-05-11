@@ -41,6 +41,18 @@ contract vVestingWallet {
             beneficiaryAddress != address(0),
             "vVestingWallet: beneficiary is zero address"
         );
+        require(
+            erc20Token != address(0),
+            "vVestingWallet: erc20Token is zero address"
+        );
+        require(
+            startTimestamp >= block.timestamp,
+            "vVestingWallet: start couldn't be in the past"
+        );
+        require(
+            durationSeconds > 0,
+            "vVestingWallet: duration must be positive"
+        );
         _erc20Token = erc20Token;
         _beneficiary = beneficiaryAddress;
         _start = startTimestamp;

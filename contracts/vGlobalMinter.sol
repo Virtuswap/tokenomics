@@ -85,6 +85,7 @@ contract vGlobalMinter is IvGlobalMinter, Ownable {
     ) external override onlyOwner returns (address vestingWallet) {
         require(block.timestamp >= emissionStartTs, "too early");
         require(amount <= unlockedBalance, "not enough unlocked tokens");
+        require(amount > 0, "amount must be positive");
         vestingWallet = address(
             new vVestingWallet(
                 beneficiary,
@@ -106,6 +107,7 @@ contract vGlobalMinter is IvGlobalMinter, Ownable {
     ) external override onlyOwner {
         require(block.timestamp >= emissionStartTs, "too early");
         require(amount <= unlockedBalance, "not enough unlocked tokens");
+        require(amount > 0, "amount must be positive");
         unlockedBalance -= amount;
         SafeERC20.safeTransfer(IERC20(vrsw), to, amount);
     }

@@ -2,7 +2,7 @@ import { SignerWithAddress } from '@nomiclabs/hardhat-ethers/signers';
 import { expect } from 'chai';
 import { deployments, ethers } from 'hardhat';
 import { GVrsw, Vrsw, VGlobalMinter } from '../typechain-types';
-import { time } from '@nomicfoundation/hardhat-network-helpers';
+import { time, mine } from '@nomicfoundation/hardhat-network-helpers';
 
 describe('vGlobalMinter 1', function () {
     let vrsw: Vrsw;
@@ -120,9 +120,11 @@ describe('vGlobalMinter 1', function () {
 
     it('newVesting works', async () => {
         const amount = ethers.utils.parseEther('10');
-        const start = await time.latest();
         const minterBalanceBefore = await vrsw.balanceOf(minter.address);
+        await mine();
+        const start = await time.latest() + 1;
         await minter.newVesting(accounts[1].address, start, 1, amount);
+        await mine();
         const minterBalanceAfter = await vrsw.balanceOf(minter.address);
         const vestingWalletAddress = await minter.vestingWallets(0);
         const vVestingWalletFactory = await ethers.getContractFactory(
