@@ -172,7 +172,7 @@ describe('vStaker', function () {
     });
 
     it('stakeLp fails when zero amount', async () => {
-        await expect(staker.stakeLp('0')).to.be.revertedWith('zero amount');
+        await expect(staker.stakeLp('0')).to.be.revertedWith('insufficient amount');
     });
 
     it('stakeLp fails if try to stake in VRSW-only pool', async () => {
@@ -241,7 +241,7 @@ describe('vStaker', function () {
     it('unstakeLp fails when amount is too big', async () => {
         const amount = await staker.lpStake(accounts[0].address);
         await expect(staker.unstakeLp(amount.add('1'))).to.be.revertedWith(
-            'insufficient amount'
+            'not enough tokens'
         );
     });
 
@@ -451,7 +451,7 @@ describe('vStaker', function () {
             '1'
         );
         await expect(staker.unstakeVrsw(amount)).to.revertedWith(
-            'insufficient amount'
+            'not enough tokens'
         );
     });
 
@@ -608,7 +608,7 @@ describe('vStaker', function () {
     it('lockStakedVrsw fails if amount is greater than unstaked', async () => {
         const amount = ethers.utils.parseEther('10');
         await expect(staker.lockStakedVrsw(amount, '1')).to.revertedWith(
-            'insufficient amount'
+            'not enough tokens'
         );
     });
 

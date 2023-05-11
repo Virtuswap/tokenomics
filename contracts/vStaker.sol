@@ -77,6 +77,26 @@ contract vStaker is IvStaker {
     // start of VRSW emission in seconds
     uint256 public immutable emissionStartTs;
 
+    modifier notBefore(uint256 timestamp) {
+        require(block.timestamp >= timestamp, "too early");
+        _;
+    }
+
+    modifier positiveLockDuration(uint256 lockDuration) {
+        require(lockDuration > 0, "insufficient lock duration");
+        _;
+    }
+
+    modifier positiveAmount(uint256 amount) {
+        require(amount > 0, "insufficient amount");
+        _;
+    }
+
+    modifier notVrswOnlyPool() {
+        require(lpToken != address(0), "can stake only vrsw");
+        _;
+    }
+
     constructor(
         address _lpToken,
         address _vrswToken,
@@ -91,10 +111,9 @@ contract vStaker is IvStaker {
     }
 
     /// @inheritdoc IvStaker
-    function stakeVrsw(uint256 amount) external override {
-        require(amount > 0, "insufficient amount");
-        require(block.timestamp >= emissionStartTs, "too early");
-
+    function stakeVrsw(
+        uint256 amount
+    ) external override notBefore(emissionStartTs) positiveAmount(amount) {
         _updateStateBefore(msg.sender);
         _stakeUnlocked(msg.sender, amount);
         _updateStateAfter(msg.sender);
@@ -110,11 +129,15 @@ contract vStaker is IvStaker {
     }
 
     /// @inheritdoc IvStaker
-    function stakeLp(uint256 amount) external override {
-        require(lpToken != address(0), "can stake only vrsw");
-        require(amount > 0, "zero amount");
-        require(block.timestamp >= emissionStartTs, "too early");
-
+    function stakeLp(
+        uint256 amount
+    )
+        external
+        override
+        notBefore(emissionStartTs)
+        positiveAmount(amount)
+        notVrswOnlyPool
+    {
         _updateStateBefore(msg.sender);
         lpStake[msg.sender] = lpStake[msg.sender].add(sd(int256(amount)));
         _updateStateAfter(msg.sender);
@@ -129,8 +152,7 @@ contract vStaker is IvStaker {
     }
 
     /// @inheritdoc IvStaker
-    function claimRewards() external override {
-        require(block.timestamp >= emissionStartTs, "too early");
+    function claimRewards() external override notBefore(emissionStartTs) {
         _updateStateBefore(msg.sender);
         uint256 amountToClaim = _calculateAccruedRewards(msg.sender, true);
         rewardsClaimed[msg.sender] = rewardsClaimed[msg.sender].add(
@@ -162,12 +184,18 @@ contract vStaker is IvStaker {
     }
 
     /// @inheritdoc IvStaker
-    function unstakeLp(uint256 amount) external override {
-        require(lpToken != address(0), "can stake only vrsw");
-        require(block.timestamp >= emissionStartTs, "too early");
+    function unstakeLp(
+        uint256 amount
+    )
+        external
+        override
+        notBefore(emissionStartTs)
+        positiveAmount(amount)
+        notVrswOnlyPool
+    {
         require(
-            int256(amount) <= unwrap(lpStake[msg.sender]) && amount > 0,
-            "insufficient amount"
+            amount <= uint256(unwrap(lpStake[msg.sender])),
+            "not enough tokens"
         );
         _updateStateBefore(msg.sender);
         lpStake[msg.sender] = lpStake[msg.sender].sub(sd(int256(amount)));
@@ -179,13 +207,14 @@ contract vStaker is IvStaker {
     }
 
     /// @inheritdoc IvStaker
-    function unstakeVrsw(uint256 amount) external override {
-        require(block.timestamp >= emissionStartTs, "too early");
+    function unstakeVrsw(
+        uint256 amount
+    ) external override notBefore(emissionStartTs) positiveAmount(amount) {
         Stake[] storage senderStakes = stakes[msg.sender];
         require(senderStakes.length > 0, "no stakes");
         require(
-            amount > 0 && amount <= uint256(unwrap(senderStakes[0].amount)),
-            "insufficient amount"
+            amount <= uint256(unwrap(senderStakes[0].amount)),
+            "not enough tokens"
         );
 
         _updateStateBefore(msg.sender);
@@ -199,15 +228,20 @@ contract vStaker is IvStaker {
     }
 
     /// @inheritdoc IvStaker
-    function lockVrsw(uint256 amount, uint256 lockDuration) external override {
-        require(block.timestamp >= emissionStartTs, "too early");
+    function lockVrsw(
+        uint256 amount,
+        uint256 lockDuration
+    )
+        external
+        override
+        notBefore(emissionStartTs)
+        positiveLockDuration(lockDuration)
+        positiveAmount(amount)
+    {
         Stake[] storage senderStakes = stakes[msg.sender];
         if (senderStakes.length == 0) {
             senderStakes.push(Stake(0, 0, ZERO, ZERO));
         }
-
-        require(amount > 0, "insufficient amount");
-        require(lockDuration > 0, "insufficient lock duration");
 
         _updateStateBefore(msg.sender);
         _newStakePosition(amount, lockDuration);
@@ -227,15 +261,19 @@ contract vStaker is IvStaker {
     function lockStakedVrsw(
         uint256 amount,
         uint256 lockDuration
-    ) external override {
-        require(block.timestamp >= emissionStartTs, "too early");
+    )
+        external
+        override
+        notBefore(emissionStartTs)
+        positiveLockDuration(lockDuration)
+        positiveAmount(amount)
+    {
         Stake[] storage senderStakes = stakes[msg.sender];
         require(senderStakes.length > 0, "no stakes");
         require(
-            amount > 0 && amount <= uint256(unwrap(senderStakes[0].amount)),
-            "insufficient amount"
+            amount <= uint256(unwrap(senderStakes[0].amount)),
+            "not enough tokens"
         );
-        require(lockDuration > 0, "insufficient lock duration");
 
         _updateStateBefore(msg.sender);
         senderStakes[0].amount = senderStakes[0].amount.sub(sd(int256(amount)));
@@ -271,8 +309,10 @@ contract vStaker is IvStaker {
     }
 
     /// @inheritdoc IvStaker
-    function unlockVrsw(address who, uint256 position) external override {
-        require(block.timestamp >= emissionStartTs, "too early");
+    function unlockVrsw(
+        address who,
+        uint256 position
+    ) external override notBefore(emissionStartTs) {
         require(position > 0, "invalid position");
         require(who != address(0), "zero address");
 
