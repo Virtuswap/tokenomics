@@ -109,13 +109,13 @@ interface IvChainMinter {
 
     /**
      * @notice Burn amount of gVrsw tokens from the specified to address.
-     * @param to The address from which the gVrsw tokens will be burned.
+     * @param from The address from which the gVrsw tokens will be burned.
      * @param amount The amount of gVrsw tokens to be burned.
      * Requirements:
      * - amount must be greater than zero.
      * - The sender must be a valid staker.
      */
-    function burnGVrsw(address to, uint256 amount) external;
+    function burnGVrsw(address from, uint256 amount) external;
 
     /**
      * @notice Calculates the amount of tokens a staker is eligible to receive from VRSW algorithmic emission.

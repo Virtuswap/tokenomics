@@ -230,7 +230,7 @@ contract vChainMinter is IvChainMinter, Ownable {
     }
 
     /// @inheritdoc IvChainMinter
-    function burnGVrsw(address to, uint256 amount) external override {
+    function burnGVrsw(address from, uint256 amount) external override {
         require(amount > 0, "zero amount");
         require(
             IvStakerFactory(stakerFactory).getPoolStaker(
@@ -238,7 +238,7 @@ contract vChainMinter is IvChainMinter, Ownable {
             ) == msg.sender,
             "invalid staker"
         );
-        SafeERC20.safeTransferFrom(IERC20(gVrsw), to, address(this), amount);
+        SafeERC20.safeTransferFrom(IERC20(gVrsw), from, address(this), amount);
     }
 
     /// @inheritdoc IvChainMinter
