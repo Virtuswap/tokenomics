@@ -10,7 +10,7 @@ contract GVrsw is ERC20 {
         minter = _minter;
     }
 
-    function mint(address to, uint256 amount) public {
+    function mint(address to, uint256 amount) external {
         require(msg.sender == minter, "Only minter");
         _mint(to, amount);
     }
