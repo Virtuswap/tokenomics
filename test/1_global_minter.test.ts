@@ -137,7 +137,7 @@ describe('vGlobalMinter 1', function () {
         expect(await vestingWallet.released()).to.equal('0');
         expect(await vestingWallet.releasable()).to.equal(amount);
         const accountBalanceBefore = await vrsw.balanceOf(accounts[1].address);
-        await vestingWallet.release();
+        await vestingWallet.connect(accounts[1]).release();
         const accountBalanceAfter = await vrsw.balanceOf(accounts[1].address);
         expect(accountBalanceAfter).to.equal(accountBalanceBefore.add(amount));
     });

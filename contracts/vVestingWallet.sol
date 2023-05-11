@@ -88,6 +88,7 @@ contract vVestingWallet {
      * Emits a {ERC20Released} event.
      */
     function release() external {
+        require(msg.sender == beneficiary(), "only beneficiary");
         uint256 amount = releasable();
         _erc20Released += amount;
         emit ERC20Released(_erc20Token, amount);
