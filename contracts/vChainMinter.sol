@@ -92,6 +92,12 @@ contract vChainMinter is IvChainMinter, Ownable {
         address _vrsw,
         address _gVrsw
     ) {
+        require(
+            _tokenomicsParams != address(0),
+            "tokenomicsParams zero address"
+        );
+        require(_vrsw != address(0), "vrsw zero address");
+        require(_gVrsw != address(0), "gVrsw zero address");
         tokenomicsParams = _tokenomicsParams;
         emissionStartTs = _emissionStartTs;
         epochDuration = 4 weeks;
@@ -123,6 +129,7 @@ contract vChainMinter is IvChainMinter, Ownable {
     function setStakerFactory(
         address _newStakerFactory
     ) external override onlyOwner {
+        require(_newStakerFactory != address(0), "zero address");
         stakerFactory = _newStakerFactory;
         emit NewStakerFactory(_newStakerFactory);
     }
@@ -188,6 +195,7 @@ contract vChainMinter is IvChainMinter, Ownable {
 
     /// @inheritdoc IvChainMinter
     function transferRewards(address to, uint256 amount) external override {
+        require(to != address(0), "zero address");
         require(block.timestamp >= emissionStartTs, "too early");
         require(amount > 0, "zero amount");
         require(
@@ -219,6 +227,7 @@ contract vChainMinter is IvChainMinter, Ownable {
 
     /// @inheritdoc IvChainMinter
     function mintGVrsw(address to, uint256 amount) external override {
+        require(to != address(0), "zero address");
         require(amount > 0, "zero amount");
         require(
             IvStakerFactory(stakerFactory).getPoolStaker(
@@ -231,6 +240,7 @@ contract vChainMinter is IvChainMinter, Ownable {
 
     /// @inheritdoc IvChainMinter
     function burnGVrsw(address from, uint256 amount) external override {
+        require(from != address(0), "zero address");
         require(amount > 0, "zero amount");
         require(
             IvStakerFactory(stakerFactory).getPoolStaker(

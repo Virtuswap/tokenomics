@@ -274,6 +274,7 @@ contract vStaker is IvStaker {
     function unlockVrsw(address who, uint256 position) external override {
         require(block.timestamp >= emissionStartTs, "too early");
         require(position > 0, "invalid position");
+        require(who != address(0), "zero address");
 
         Stake memory userStake = stakes[who][position];
         require(

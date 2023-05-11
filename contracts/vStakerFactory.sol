@@ -37,6 +37,12 @@ contract vStakerFactory is IvStakerFactory {
         address _minter,
         address _tokenomicsParams
     ) {
+        require(_minter != address(0), "minter zero address");
+        require(_vrswToken != address(0), "vrswToken zero address");
+        require(
+            _tokenomicsParams != address(0),
+            "tokenomicsParams zero address"
+        );
         admin = msg.sender;
         vrswToken = _vrswToken;
         minter = _minter;
