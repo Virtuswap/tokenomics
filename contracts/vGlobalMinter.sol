@@ -115,19 +115,15 @@ contract vGlobalMinter is IvGlobalMinter, Ownable {
     /// @inheritdoc IvGlobalMinter
     function nextEpochTransfer() external override onlyOwner {
         uint256 currentEpochEnd = startEpochTime + epochDuration;
-        if (block.timestamp >= currentEpochEnd) {
-            _epochTransition();
-            currentEpochEnd = startEpochTime + epochDuration;
-        }
+        _epochTransition();
+        // now startEpochTime points to the next epoch start
         require(
-            block.timestamp + epochPreparationTime >= currentEpochEnd,
+            block.timestamp + epochPreparationTime >= startEpochTime,
             "Too early"
         );
         uint256 amountToTransfer = EmissionMath.calculateAlgorithmicEmission(
             currentEpochEnd - emissionStartTs,
-            currentEpochEnd +
-                (nextEpochDuration > 0 ? nextEpochDuration : epochDuration) -
-                emissionStartTs
+            startEpochTime + epochDuration - emissionStartTs
         );
         SafeERC20.safeTransfer(IERC20(vrsw), msg.sender, amountToTransfer);
     }
@@ -152,7 +148,7 @@ contract vGlobalMinter is IvGlobalMinter, Ownable {
     }
 
     function _epochTransition() private {
-        startEpochTime += epochDuration;
+        uint256 _startEpochTime = startEpochTime + epochDuration;
         if (nextEpochDuration > 0) {
             epochDuration = nextEpochDuration;
             nextEpochDuration = 0;
@@ -161,5 +157,10 @@ contract vGlobalMinter is IvGlobalMinter, Ownable {
             epochPreparationTime = nextEpochPreparationTime;
             nextEpochPreparationTime = 0;
         }
+        uint256 _epochDuration = epochDuration;
+        while (block.timestamp >= _startEpochTime) {
+            _startEpochTime += _epochDuration;
+        }
+        startEpochTime = _startEpochTime;
     }
 }
