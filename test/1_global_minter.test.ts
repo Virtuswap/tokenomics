@@ -184,7 +184,7 @@ describe('vGlobalMinter 1', function () {
         await time.setNextBlockTimestamp(
             ethers.BigNumber.from(await time.latest())
                 .add(await minter.epochDuration())
-                .add('650')
+                .sub('100')
         );
         expect(await minter.nextEpochPreparationTime()).to.be.equal('648');
         expect(await minter.nextEpochDuration()).to.be.equal('1296');

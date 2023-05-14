@@ -28,8 +28,6 @@ describe('vChainMinter 1', function () {
         stakerFactory = await ethers.getContract('stakerFactory');
         globalMinter = await ethers.getContract('globalMinter');
 
-        await minter.setStakerFactory(stakerFactory.address);
-
         vrsw = await ethers.getContractAt('Vrsw', await minter.vrsw());
 
         await vrsw.approve(minter.address, ethers.utils.parseEther('10000000'));
