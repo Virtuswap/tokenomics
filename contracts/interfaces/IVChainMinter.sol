@@ -81,10 +81,9 @@ interface IVChainMinter {
      * @notice Transfers a specified amount of VRSW tokens as a reward to a recipient.
      *
      * This function allows a registered staker to transfer a specified amount of
-     * rewards tokens to a recipient address. The caller must be a registered staker
-     * with a non-zero allocation point, and the current timestamp must be later
-     * than the contract's emission start time. The staker must have enough untransferred
-     * rewards tokens to transfer.
+     * rewards tokens to a recipient address. The caller must be a registered staker,
+     * and the current timestamp must be later than the contract's emission start time.
+     * The staker must have enough untransferred rewards tokens to transfer.
      *
      * @param to The address of the recipient to transfer tokens to.
      * @param amount The amount of tokens to transfer.
