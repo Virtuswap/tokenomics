@@ -4,9 +4,9 @@ pragma solidity ^0.8.0;
 
 import {SD59x18, sd, unwrap, exp, UNIT, ZERO} from "@prb/math/src/SD59x18.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
-import "./interfaces/IvTokenomicsParams.sol";
+import "./interfaces/IVTokenomicsParams.sol";
 
-contract vTokenomicsParams is IvTokenomicsParams, Ownable {
+contract VTokenomicsParams is IVTokenomicsParams, Ownable {
     // Ten years in seconds starting from 2023
     uint256 public constant TEN_YEARS = (365 * 8 + 366 * 2) * 24 * 60 * 60;
 
@@ -29,7 +29,7 @@ contract vTokenomicsParams is IvTokenomicsParams, Ownable {
         emit UpdateTokenomicsParams(r, b, alpha, beta, gamma);
     }
 
-    /// @inheritdoc IvTokenomicsParams
+    /// @inheritdoc IVTokenomicsParams
     function updateParams(
         SD59x18 _r,
         SD59x18 _b,

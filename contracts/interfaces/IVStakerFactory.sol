@@ -6,7 +6,7 @@ pragma solidity ^0.8.0;
  * @title IvStakerFactory
  * @notice Interface for vStakerFactory contract for creating and managing vStakers
  */
-interface IvStakerFactory {
+interface IVStakerFactory {
     /**
      * @notice Event emitted when a new vStaker contract is created.
      * @param stakerAddress Address of the new vStaker contract.

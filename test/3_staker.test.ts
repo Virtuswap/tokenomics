@@ -36,7 +36,7 @@ describe('vStaker', function () {
         // create staker for token0
         await stakerFactory.createPoolStaker(token0.address);
         const stakerAddr = await stakerFactory.getPoolStaker(token0.address);
-        staker = await ethers.getContractAt('vStaker', stakerAddr);
+        staker = await ethers.getContractAt('VStaker', stakerAddr);
 
         // approve
         await token0.approve(staker.address, ethers.utils.parseEther('1000'));
@@ -179,7 +179,7 @@ describe('vStaker', function () {
         await expect(
             (
                 await ethers.getContractAt(
-                    'vStaker',
+                    'VStaker',
                     await stakerFactory.getVRSWPoolStaker()
                 )
             ).stakeLp('1000')
@@ -190,7 +190,7 @@ describe('vStaker', function () {
         await expect(
             (
                 await ethers.getContractAt(
-                    'vStaker',
+                    'VStaker',
                     await stakerFactory.getVRSWPoolStaker()
                 )
             ).unstakeLp('1000')
@@ -701,7 +701,7 @@ describe('vStakerFactory', function () {
         // create staker for token0
         await stakerFactory.createPoolStaker(token0.address);
         const stakerAddr = await stakerFactory.getPoolStaker(token0.address);
-        staker = await ethers.getContractAt('vStaker', stakerAddr);
+        staker = await ethers.getContractAt('VStaker', stakerAddr);
 
         // approve
         await token0.approve(staker.address, ethers.utils.parseEther('1000'));

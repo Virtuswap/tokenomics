@@ -14,7 +14,7 @@ const deployCore: DeployFunction = async function (
 
     const tokenomicsParams = await deploy('tokenomicsParams', {
         from: deployer,
-        contract: 'vTokenomicsParams',
+        contract: 'VTokenomicsParams',
         args: [],
         log: true,
         waitConfirmations: networkConfig[network.name].blockConfirmations || 0,
@@ -33,14 +33,14 @@ const deployCore: DeployFunction = async function (
 
     const globalMinter = await deploy('globalMinter', {
         from: deployer,
-        contract: 'vGlobalMinter',
+        contract: 'VGlobalMinter',
         args: [timestamp],
         log: true,
         waitConfirmations: networkConfig[network.name].blockConfirmations || 0,
     });
 
     const globalMinterContract = await hre.ethers.getContractAt(
-        'vGlobalMinter',
+        'VGlobalMinter',
         globalMinter.address
     );
     const vrswTokenAddress = await globalMinterContract.vrsw();
@@ -48,7 +48,7 @@ const deployCore: DeployFunction = async function (
 
     const chainMinter = await deploy('chainMinter', {
         from: deployer,
-        contract: 'vChainMinter',
+        contract: 'VChainMinter',
         args: [
             timestamp,
             tokenomicsParams.address,
@@ -60,19 +60,19 @@ const deployCore: DeployFunction = async function (
 
     const stakerFactory = await deploy('stakerFactory', {
         from: deployer,
-        contract: 'vStakerFactory',
+        contract: 'VStakerFactory',
         args: [vrswTokenAddress, chainMinter.address, tokenomicsParams.address],
         log: true,
         waitConfirmations: networkConfig[network.name].blockConfirmations || 0,
     });
 
     const stakerFactoryContract = await hre.ethers.getContractAt(
-        'vStakerFactory',
+        'VStakerFactory',
         stakerFactory.address
     );
 
     const chainMinterContract = await hre.ethers.getContractAt(
-        'vChainMinter',
+        'VChainMinter',
         chainMinter.address
     );
 

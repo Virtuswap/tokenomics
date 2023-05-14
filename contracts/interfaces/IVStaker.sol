@@ -2,12 +2,12 @@
 
 pragma solidity ^0.8.0;
 
-import "../types.sol";
+import "../Types.sol";
 
 /**
  * @title Interface for vStaker contract for staking VRSW and LP tokens.
  */
-interface IvStaker {
+interface IVStaker {
     /**
      *@notice Emitted when who stakes amount of VRSW tokens.
      *@param who Address of the account that stakes the tokens.

@@ -5,12 +5,12 @@ pragma solidity ^0.8.0;
 import {SD59x18, sd, unwrap, exp, UNIT, ZERO} from "@prb/math/src/SD59x18.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
-import "./types.sol";
-import "./interfaces/IvStaker.sol";
-import "./interfaces/IvChainMinter.sol";
-import "./interfaces/IvTokenomicsParams.sol";
+import "./Types.sol";
+import "./interfaces/IVStaker.sol";
+import "./interfaces/IVChainMinter.sol";
+import "./interfaces/IVTokenomicsParams.sol";
 
-contract vStaker is IvStaker {
+contract VStaker is IVStaker {
     /**
      * @dev The amount of LP tokens staked by each user.
      */
@@ -107,10 +107,10 @@ contract vStaker is IvStaker {
         minter = _minter;
         vrswToken = _vrswToken;
         tokenomicsParams = _tokenomicsParams;
-        emissionStartTs = IvChainMinter(minter).emissionStartTs();
+        emissionStartTs = IVChainMinter(minter).emissionStartTs();
     }
 
-    /// @inheritdoc IvStaker
+    /// @inheritdoc IVStaker
     function stakeVrsw(
         uint256 amount
     ) external override notBefore(emissionStartTs) positiveAmount(amount) {
@@ -124,11 +124,11 @@ contract vStaker is IvStaker {
             address(this),
             amount
         );
-        IvChainMinter(minter).mintGVrsw(msg.sender, amount);
+        IVChainMinter(minter).mintGVrsw(msg.sender, amount);
         emit StakeVrsw(msg.sender, amount);
     }
 
-    /// @inheritdoc IvStaker
+    /// @inheritdoc IVStaker
     function stakeLp(
         uint256 amount
     )
@@ -151,7 +151,7 @@ contract vStaker is IvStaker {
         emit StakeLp(msg.sender, amount);
     }
 
-    /// @inheritdoc IvStaker
+    /// @inheritdoc IVStaker
     function claimRewards() external override notBefore(emissionStartTs) {
         _updateStateBefore(msg.sender);
         uint256 amountToClaim = _calculateAccruedRewards(msg.sender, true);
@@ -161,12 +161,12 @@ contract vStaker is IvStaker {
         _updateStateAfter(msg.sender);
 
         if (amountToClaim > 0) {
-            IvChainMinter(minter).transferRewards(msg.sender, amountToClaim);
+            IVChainMinter(minter).transferRewards(msg.sender, amountToClaim);
         }
         emit RewardsClaimed(msg.sender, amountToClaim);
     }
 
-    /// @inheritdoc IvStaker
+    /// @inheritdoc IVStaker
     function unstakeLp(
         uint256 amount
     )
@@ -189,7 +189,7 @@ contract vStaker is IvStaker {
         emit UnstakeLp(msg.sender, amount);
     }
 
-    /// @inheritdoc IvStaker
+    /// @inheritdoc IVStaker
     function unstakeVrsw(
         uint256 amount
     ) external override notBefore(emissionStartTs) positiveAmount(amount) {
@@ -205,12 +205,12 @@ contract vStaker is IvStaker {
         _updateStateAfter(msg.sender);
 
         SafeERC20.safeTransfer(IERC20(vrswToken), msg.sender, amount);
-        IvChainMinter(minter).burnGVrsw(msg.sender, amount);
+        IVChainMinter(minter).burnGVrsw(msg.sender, amount);
 
         emit UnstakeVrsw(msg.sender, amount);
     }
 
-    /// @inheritdoc IvStaker
+    /// @inheritdoc IVStaker
     function lockVrsw(
         uint256 amount,
         uint128 lockDuration
@@ -236,11 +236,11 @@ contract vStaker is IvStaker {
             address(this),
             amount
         );
-        IvChainMinter(minter).mintGVrsw(msg.sender, amount);
+        IVChainMinter(minter).mintGVrsw(msg.sender, amount);
         emit LockVrsw(msg.sender, amount, lockDuration);
     }
 
-    /// @inheritdoc IvStaker
+    /// @inheritdoc IVStaker
     function lockStakedVrsw(
         uint256 amount,
         uint128 lockDuration
@@ -265,7 +265,7 @@ contract vStaker is IvStaker {
         emit LockStakedVrsw(msg.sender, amount, lockDuration);
     }
 
-    /// @inheritdoc IvStaker
+    /// @inheritdoc IVStaker
     function unlockVrsw(
         address who,
         uint256 position
@@ -290,7 +290,7 @@ contract vStaker is IvStaker {
         emit UnlockVrsw(who, vrswToUnlock);
     }
 
-    /// @inheritdoc IvStaker
+    /// @inheritdoc IVStaker
     function checkLock(
         address who
     ) external view override returns (uint[] memory unlockedPositions) {
@@ -316,14 +316,14 @@ contract vStaker is IvStaker {
         }
     }
 
-    /// @inheritdoc IvStaker
+    /// @inheritdoc IVStaker
     function viewRewards(
         address who
     ) external view override returns (uint256 rewards) {
         rewards = _calculateAccruedRewards(who, false);
     }
 
-    /// @inheritdoc IvStaker
+    /// @inheritdoc IVStaker
     function viewStakes()
         external
         view
@@ -345,7 +345,7 @@ contract vStaker is IvStaker {
                 uint128(block.timestamp),
                 lockDuration,
                 exp(
-                    IvTokenomicsParams(tokenomicsParams).r().mul(
+                    IVTokenomicsParams(tokenomicsParams).r().mul(
                         sd(-int256(block.timestamp - emissionStartTs) * 1e18)
                     )
                 ),
@@ -377,7 +377,7 @@ contract vStaker is IvStaker {
                 .add(
                     sd(int256(amount)).mul(
                         exp(
-                            IvTokenomicsParams(tokenomicsParams).r().mul(
+                            IVTokenomicsParams(tokenomicsParams).r().mul(
                                 sd(
                                     -int256(block.timestamp - emissionStartTs) *
                                         1e18
@@ -417,11 +417,11 @@ contract vStaker is IvStaker {
             mult = mult.add(
                 senderStakes[i].amount.mul(senderStakes[i].discountFactor).mul(
                     UNIT.add(
-                        IvTokenomicsParams(tokenomicsParams).b().mul(
+                        IVTokenomicsParams(tokenomicsParams).b().mul(
                             sd(
                                 int256(uint256(senderStakes[i].lockDuration)) *
                                     1e18
-                            ).pow(IvTokenomicsParams(tokenomicsParams).gamma())
+                            ).pow(IVTokenomicsParams(tokenomicsParams).gamma())
                         )
                     )
                 )
@@ -431,8 +431,8 @@ contract vStaker is IvStaker {
         SD59x18 muNew = (
             lpToken == address(0)
                 ? UNIT
-                : lpStake[who].pow(IvTokenomicsParams(tokenomicsParams).alpha())
-        ).mul(mult.pow(IvTokenomicsParams(tokenomicsParams).beta()));
+                : lpStake[who].pow(IVTokenomicsParams(tokenomicsParams).alpha())
+        ).mul(mult.pow(IVTokenomicsParams(tokenomicsParams).beta()));
         totalMu = totalMu.add(muNew.sub(mu[who]));
         mu[who] = muNew;
     }
@@ -497,7 +497,7 @@ contract vStaker is IvStaker {
         _totalVrswAvailable = sd(
             int256(
                 uint256(
-                    IvChainMinter(minter).calculateTokensForStaker(
+                    IVChainMinter(minter).calculateTokensForStaker(
                         address(this)
                     )
                 )
@@ -506,7 +506,7 @@ contract vStaker is IvStaker {
         _compoundRateGlobal = sd(
             int256(
                 uint256(
-                    IvChainMinter(minter).calculateCompoundRateForStaker(
+                    IVChainMinter(minter).calculateCompoundRateForStaker(
                         address(this)
                     )
                 )

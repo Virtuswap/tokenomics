@@ -163,9 +163,9 @@ describe('vChainMinter: allocation points', function () {
         const staker1Addr = await stakerFactory.getVRSWPoolStaker();
         const staker2Addr = await stakerFactory.getPoolStaker(token1.address);
         const staker3Addr = await stakerFactory.getPoolStaker(token2.address);
-        staker1 = await ethers.getContractAt('vStaker', staker1Addr);
-        staker2 = await ethers.getContractAt('vStaker', staker2Addr);
-        staker3 = await ethers.getContractAt('vStaker', staker3Addr);
+        staker1 = await ethers.getContractAt('VStaker', staker1Addr);
+        staker2 = await ethers.getContractAt('VStaker', staker2Addr);
+        staker3 = await ethers.getContractAt('VStaker', staker3Addr);
 
         vrsw = await ethers.getContractAt('Vrsw', await minter.vrsw());
         gVrsw = await ethers.getContractAt('GVrsw', await minter.gVrsw());

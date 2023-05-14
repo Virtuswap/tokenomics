@@ -2,10 +2,10 @@
 
 pragma solidity ^0.8.0;
 
-import "./vStaker.sol";
-import "./interfaces/IvStakerFactory.sol";
+import "./VStaker.sol";
+import "./interfaces/IVStakerFactory.sol";
 
-contract vStakerFactory is IvStakerFactory {
+contract VStakerFactory is IVStakerFactory {
     // mapping of lp tokens to the corresponding staker
     mapping(address => address) public stakers;
 
@@ -49,13 +49,13 @@ contract vStakerFactory is IvStakerFactory {
         tokenomicsParams = _tokenomicsParams;
         // create staker for VRSW staking (without lp tokens)
         address staker = address(
-            new vStaker(address(0), vrswToken, minter, tokenomicsParams)
+            new VStaker(address(0), vrswToken, minter, tokenomicsParams)
         );
         stakers[address(0)] = staker;
         allStakers.push(staker);
     }
 
-    /// @inheritdoc IvStakerFactory
+    /// @inheritdoc IVStakerFactory
     function createPoolStaker(
         address _lpToken
     ) external override onlyAdmin returns (address staker) {
@@ -63,7 +63,7 @@ contract vStakerFactory is IvStakerFactory {
         require(stakers[_lpToken] == address(0), "staker exists");
 
         staker = address(
-            new vStaker(_lpToken, vrswToken, minter, tokenomicsParams)
+            new VStaker(_lpToken, vrswToken, minter, tokenomicsParams)
         );
         stakers[_lpToken] = staker;
         allStakers.push(staker);
@@ -71,7 +71,7 @@ contract vStakerFactory is IvStakerFactory {
         emit StakerCreated(staker, address(this), _lpToken);
     }
 
-    /// @inheritdoc IvStakerFactory
+    /// @inheritdoc IVStakerFactory
     function setPendingAdmin(
         address newPendingAdmin
     ) external override onlyAdmin {
@@ -79,7 +79,7 @@ contract vStakerFactory is IvStakerFactory {
         emit StakerFactoryNewPendingAdmin(newPendingAdmin);
     }
 
-    /// @inheritdoc IvStakerFactory
+    /// @inheritdoc IVStakerFactory
     function acceptAdmin() external override {
         require(
             msg.sender != address(0) && msg.sender == pendingAdmin,
@@ -90,12 +90,12 @@ contract vStakerFactory is IvStakerFactory {
         emit StakerFactoryNewAdmin(admin);
     }
 
-    /// @inheritdoc IvStakerFactory
+    /// @inheritdoc IVStakerFactory
     function getVRSWPoolStaker() external view override returns (address) {
         return stakers[address(0)];
     }
 
-    /// @inheritdoc IvStakerFactory
+    /// @inheritdoc IVStakerFactory
     function getPoolStaker(
         address _lpToken
     ) external view override returns (address) {

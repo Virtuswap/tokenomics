@@ -5,8 +5,8 @@ pragma solidity ^0.8.0;
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
 import "./libraries/EmissionMath.sol";
-import "./interfaces/IvGlobalMinter.sol";
-import "./vVestingWallet.sol";
+import "./interfaces/IVGlobalMinter.sol";
+import "./VVestingWallet.sol";
 import "./Vrsw.sol";
 import "./GVrsw.sol";
 
@@ -15,7 +15,7 @@ import "./GVrsw.sol";
  * @dev This contract is responsible for minting and distributing VRSW and gVrsw
  * tokens.
  */
-contract vGlobalMinter is IvGlobalMinter, Ownable {
+contract VGlobalMinter is IVGlobalMinter, Ownable {
     // list of all vesting wallets that were created by the minter
     address[] public vestingWallets;
 
@@ -71,12 +71,12 @@ contract vGlobalMinter is IvGlobalMinter, Ownable {
         gVrsw = new GVrsw(address(this));
     }
 
-    /// @inheritdoc IvGlobalMinter
+    /// @inheritdoc IVGlobalMinter
     function addChainMinter() external override onlyOwner {
         gVrsw.mint(msg.sender, 1e9 * 1e18);
     }
 
-    /// @inheritdoc IvGlobalMinter
+    /// @inheritdoc IVGlobalMinter
     function newVesting(
         address beneficiary,
         uint32 startTs,
@@ -100,7 +100,7 @@ contract vGlobalMinter is IvGlobalMinter, Ownable {
         emit NewVesting(vestingWallet, beneficiary, startTs, duration);
     }
 
-    /// @inheritdoc IvGlobalMinter
+    /// @inheritdoc IVGlobalMinter
     function arbitraryTransfer(
         address to,
         uint256 amount
@@ -112,7 +112,7 @@ contract vGlobalMinter is IvGlobalMinter, Ownable {
         SafeERC20.safeTransfer(IERC20(vrsw), to, amount);
     }
 
-    /// @inheritdoc IvGlobalMinter
+    /// @inheritdoc IVGlobalMinter
     function nextEpochTransfer() external override onlyOwner {
         uint256 currentEpochEnd = startEpochTime + epochDuration;
         _epochTransition();
@@ -128,7 +128,7 @@ contract vGlobalMinter is IvGlobalMinter, Ownable {
         SafeERC20.safeTransfer(IERC20(vrsw), msg.sender, amountToTransfer);
     }
 
-    /// @inheritdoc IvGlobalMinter
+    /// @inheritdoc IVGlobalMinter
     function setEpochParams(
         uint32 _epochDuration,
         uint32 _epochPreparationTime

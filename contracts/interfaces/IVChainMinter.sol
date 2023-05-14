@@ -5,7 +5,7 @@ pragma solidity ^0.8.0;
 /**
 @title Interface for vChainMinter contract, which handles VRSW and gVRSW tokens distribution.
 */
-interface IvChainMinter {
+interface IVChainMinter {
     /**
      * @notice Emitted when a new staker factory is set.
      * @param stakerFactoryAddress is the address of the new staker factory.

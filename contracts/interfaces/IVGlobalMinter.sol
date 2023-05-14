@@ -5,7 +5,7 @@ pragma solidity ^0.8.0;
 /**
 @title Interface for vGlobalMinter contract, which handles VRSW and gVRSW tokens distribution.
 */
-interface IvGlobalMinter {
+interface IVGlobalMinter {
     /**
      * @notice Emitted when a new vVestingWallet contract is created.
      * @param vestingWallet The address of the vesting wallet.

@@ -5,14 +5,14 @@ pragma solidity ^0.8.0;
 import {SD59x18} from "@prb/math/src/SD59x18.sol";
 
 /**
-@title IvTokenomicsParams
+@title IVTokenomicsParams
 @dev Interface for the tokenomics parameters.
 
 To learn more about these parameters
 you can refer to Virtuswap Tokenomics Whitepaper.
 
 */
-interface IvTokenomicsParams {
+interface IVTokenomicsParams {
     /**
      * @dev Emitted when the tokenomics parameters are updated.
      */

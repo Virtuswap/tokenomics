@@ -6,16 +6,16 @@ import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/utils/math/Math.sol";
 import "./libraries/EmissionMath.sol";
-import "./interfaces/IvStakerFactory.sol";
-import "./interfaces/IvStaker.sol";
-import "./interfaces/IvChainMinter.sol";
-import "./interfaces/IvTokenomicsParams.sol";
+import "./interfaces/IVStakerFactory.sol";
+import "./interfaces/IVStaker.sol";
+import "./interfaces/IVChainMinter.sol";
+import "./interfaces/IVTokenomicsParams.sol";
 
 /**
  * @title vChainMinter
  * @dev This contract is responsible for distributing VRSW ang gVRSW tokens to stakers
  */
-contract vChainMinter is IvChainMinter, Ownable {
+contract VChainMinter is IVChainMinter, Ownable {
     struct StakerInfo {
         uint128 totalAllocated; // Total amount of VRSW tokens allocated to the staker
         uint128 totalTransferred; // Total amount of VRSW tokens already transferred to the staker
@@ -107,7 +107,7 @@ contract vChainMinter is IvChainMinter, Ownable {
         gVrsw = _gVrsw;
     }
 
-    /// @inheritdoc IvChainMinter
+    /// @inheritdoc IVChainMinter
     function prepareForNextEpoch(
         uint256 nextBalance
     ) external override onlyOwner {
@@ -125,7 +125,7 @@ contract vChainMinter is IvChainMinter, Ownable {
         );
     }
 
-    /// @inheritdoc IvChainMinter
+    /// @inheritdoc IVChainMinter
     function setStakerFactory(
         address _newStakerFactory
     ) external override onlyOwner {
@@ -135,7 +135,7 @@ contract vChainMinter is IvChainMinter, Ownable {
         emit NewStakerFactory(_newStakerFactory);
     }
 
-    /// @inheritdoc IvChainMinter
+    /// @inheritdoc IVChainMinter
     function setEpochParams(
         uint32 _epochDuration,
         uint32 _epochPreparationTime
@@ -154,7 +154,7 @@ contract vChainMinter is IvChainMinter, Ownable {
         );
     }
 
-    /// @inheritdoc IvChainMinter
+    /// @inheritdoc IVChainMinter
     function setAllocationPoints(
         address[] calldata _stakers,
         uint256[] calldata _allocationPoints
@@ -168,8 +168,8 @@ contract vChainMinter is IvChainMinter, Ownable {
         StakerInfo memory stakerInfo;
         for (uint256 i = 0; i < _stakers.length; ++i) {
             require(
-                IvStakerFactory(_stakerFactory).getPoolStaker(
-                    IvStaker(_stakers[i]).lpToken()
+                IVStakerFactory(_stakerFactory).getPoolStaker(
+                    IVStaker(_stakers[i]).lpToken()
                 ) == _stakers[i],
                 "invalid staker"
             );
@@ -194,14 +194,14 @@ contract vChainMinter is IvChainMinter, Ownable {
         totalAllocationPoints = uint256(_totalAllocationPoints);
     }
 
-    /// @inheritdoc IvChainMinter
+    /// @inheritdoc IVChainMinter
     function transferRewards(address to, uint256 amount) external override {
         require(to != address(0), "zero address");
         require(block.timestamp >= emissionStartTs, "too early");
         require(amount > 0, "zero amount");
         require(
-            IvStakerFactory(stakerFactory).getPoolStaker(
-                IvStaker(msg.sender).lpToken()
+            IVStakerFactory(stakerFactory).getPoolStaker(
+                IVStaker(msg.sender).lpToken()
             ) == msg.sender,
             "invalid staker"
         );
@@ -226,33 +226,33 @@ contract vChainMinter is IvChainMinter, Ownable {
         emit TransferRewards(to, amount);
     }
 
-    /// @inheritdoc IvChainMinter
+    /// @inheritdoc IVChainMinter
     function mintGVrsw(address to, uint256 amount) external override {
         require(to != address(0), "zero address");
         require(amount > 0, "zero amount");
         require(
-            IvStakerFactory(stakerFactory).getPoolStaker(
-                IvStaker(msg.sender).lpToken()
+            IVStakerFactory(stakerFactory).getPoolStaker(
+                IVStaker(msg.sender).lpToken()
             ) == msg.sender,
             "invalid staker"
         );
         SafeERC20.safeTransfer(IERC20(gVrsw), to, amount);
     }
 
-    /// @inheritdoc IvChainMinter
+    /// @inheritdoc IVChainMinter
     function burnGVrsw(address from, uint256 amount) external override {
         require(from != address(0), "zero address");
         require(amount > 0, "zero amount");
         require(
-            IvStakerFactory(stakerFactory).getPoolStaker(
-                IvStaker(msg.sender).lpToken()
+            IVStakerFactory(stakerFactory).getPoolStaker(
+                IVStaker(msg.sender).lpToken()
             ) == msg.sender,
             "invalid staker"
         );
         SafeERC20.safeTransferFrom(IERC20(gVrsw), from, address(this), amount);
     }
 
-    /// @inheritdoc IvChainMinter
+    /// @inheritdoc IVChainMinter
     function calculateTokensForStaker(
         address staker
     ) external view override returns (uint256) {
@@ -269,7 +269,7 @@ contract vChainMinter is IvChainMinter, Ownable {
         return stakerInfo.totalAllocated;
     }
 
-    /// @inheritdoc IvChainMinter
+    /// @inheritdoc IVChainMinter
     function calculateCompoundRateForStaker(
         address staker
     ) external view override returns (uint256) {
@@ -320,7 +320,7 @@ contract vChainMinter is IvChainMinter, Ownable {
                 (EmissionMath.calculateCompoundRate(
                     stakerInfo.lastUpdated - _emissionStartTs,
                     block.timestamp - _emissionStartTs,
-                    IvTokenomicsParams(tokenomicsParams).r()
+                    IVTokenomicsParams(tokenomicsParams).r()
                 ) * uint128(_allocationPoints)) / ALLOCATION_POINTS_FACTOR
             );
             stakerInfo.totalAllocated += uint128(
