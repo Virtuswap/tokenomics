@@ -27,7 +27,7 @@ describe('vGlobalMinter 1', function () {
 
         // skip time to emissionStart
         await time.setNextBlockTimestamp(
-            (await minter.emissionStartTs()).add(60)
+            ethers.BigNumber.from(await minter.emissionStartTs()).add(60)
         );
     });
 
@@ -155,13 +155,13 @@ describe('vGlobalMinter 1', function () {
     it('setEpochParams works', async () => {
         // with epoch transition call
         await minter.setEpochParams('1296000', '648000');
-        expect(await minter.nextEpochPreparationTime()).to.be.equal('648000');
-        expect(await minter.nextEpochDuration()).to.be.equal('1296000');
+        expect(await minter.nextEpochPreparationTime()).to.be.equal(648000);
+        expect(await minter.nextEpochDuration()).to.be.equal(1296000);
 
         // without epoch transition call
         await minter.setEpochParams('1296', '648');
-        expect(await minter.nextEpochPreparationTime()).to.be.equal('648');
-        expect(await minter.nextEpochDuration()).to.be.equal('1296');
+        expect(await minter.nextEpochPreparationTime()).to.be.equal(648);
+        expect(await minter.nextEpochDuration()).to.be.equal(1296);
     });
 
     it('setEpochParams fails when preparation time is more than epoch duration', async () => {
@@ -186,11 +186,11 @@ describe('vGlobalMinter 1', function () {
                 .add(await minter.epochDuration())
                 .sub('100')
         );
-        expect(await minter.nextEpochPreparationTime()).to.be.equal('648');
-        expect(await minter.nextEpochDuration()).to.be.equal('1296');
+        expect(await minter.nextEpochPreparationTime()).to.be.equal(648);
+        expect(await minter.nextEpochDuration()).to.be.equal(1296);
         await minter.nextEpochTransfer();
-        expect(await minter.nextEpochPreparationTime()).to.be.equal('0');
-        expect(await minter.nextEpochDuration()).to.be.equal('0');
+        expect(await minter.nextEpochPreparationTime()).to.be.equal(0);
+        expect(await minter.nextEpochDuration()).to.be.equal(0);
     });
 });
 
@@ -218,13 +218,10 @@ describe('vGlobalMinter 2', function () {
 
         // epoch #1
         await time.setNextBlockTimestamp(
-            (
+            ethers.BigNumber.from(
                 await minter.emissionStartTs()
-            ).add(
-                (
-                    await minter.epochDuration()
-                ).sub(await minter.epochPreparationTime())
-            )
+            ).add(await minter.epochDuration()
+            ).sub(await minter.epochPreparationTime())
         );
         await minter.nextEpochTransfer();
         const balanceAfter2 = await vrsw.balanceOf(accounts[0].address);

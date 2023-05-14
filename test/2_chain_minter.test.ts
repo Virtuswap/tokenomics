@@ -41,7 +41,7 @@ describe('vChainMinter 1', function () {
 
         // skip time to emissionStart
         await time.setNextBlockTimestamp(
-            (await globalMinter.emissionStartTs()).add(60)
+            ethers.BigNumber.from(await globalMinter.emissionStartTs()).add(60)
         );
     });
 
@@ -96,8 +96,8 @@ describe('vChainMinter 1', function () {
 
     it('setEpochParams works', async () => {
         await minter.setEpochParams('1296000', '648000');
-        expect(await minter.nextEpochPreparationTime()).to.be.equal('648000');
-        expect(await minter.nextEpochDuration()).to.be.equal('1296000');
+        expect(await minter.nextEpochPreparationTime()).to.be.equal(648000);
+        expect(await minter.nextEpochDuration()).to.be.equal(1296000);
     });
 
     it('setEpochParams fails when preparation time is more than epoch duration', async () => {
@@ -126,11 +126,8 @@ describe('vChainMinter 1', function () {
         await time.setNextBlockTimestamp(
             (
                 await minter.emissionStartTs()
-            ).add(
-                (
-                    await minter.epochDuration()
-                ).sub(await minter.epochPreparationTime())
-            )
+            ).add(await minter.epochDuration()
+            ).sub(await minter.epochPreparationTime())
         );
 
         await minter.prepareForNextEpoch(balanceAfter);
@@ -190,7 +187,7 @@ describe('vChainMinter: allocation points', function () {
 
         // skip time to emissionStart
         await time.setNextBlockTimestamp(
-            (await globalMinter.emissionStartTs()).add(60)
+            ethers.BigNumber.from(await globalMinter.emissionStartTs()).add(60)
         );
     });
 

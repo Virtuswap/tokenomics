@@ -29,8 +29,8 @@ interface IvChainMinter {
      * - The caller must be the owner of the contract.
      */
     function setEpochParams(
-        uint256 _epochDuration,
-        uint256 _epochPreparationTime
+        uint32 _epochDuration,
+        uint32 _epochPreparationTime
     ) external;
 
     /**

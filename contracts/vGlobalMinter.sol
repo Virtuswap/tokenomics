@@ -22,30 +22,30 @@ contract vGlobalMinter is IvGlobalMinter, Ownable {
     // VRSW algorithmic distribution is divided into epochs
 
     // the timestamp of the current epoch start
-    uint256 public startEpochTime;
+    uint32 public startEpochTime;
 
     // current epoch duration (in seconds)
-    uint256 public epochDuration;
+    uint32 public epochDuration;
 
     // the time (in seconds) before the next epoch to transfer the necessary
     // amount of VRSW tokens for the next epoch to distribute
-    uint256 public epochPreparationTime;
+    uint32 public epochPreparationTime;
 
     // the next epoch duration
     // if the value is zero then the next epoch duration is the same as the current
     // epoch duration
-    uint256 public nextEpochDuration;
+    uint32 public nextEpochDuration;
 
     // the next epoch preparation time
     // if the value is zero then the next epoch preparation time is the same as
     // the current epoch preparation time
-    uint256 public nextEpochPreparationTime;
+    uint32 public nextEpochPreparationTime;
+
+    // timestamp of VRSW emission start
+    uint32 public immutable emissionStartTs;
 
     // balance that is available for arbitraryTransfer and newVesting functions
     uint256 public unlockedBalance;
-
-    // timestamp of VRSW emission start
-    uint256 public immutable emissionStartTs;
 
     // VRSW token
     Vrsw public immutable vrsw;
@@ -57,7 +57,7 @@ contract vGlobalMinter is IvGlobalMinter, Ownable {
      * @dev Constructor function
      * @param _emissionStartTs Timestamp of the start of emission
      */
-    constructor(uint256 _emissionStartTs) {
+    constructor(uint32 _emissionStartTs) {
         require(
             _emissionStartTs > block.timestamp,
             "invalid emission start timestamp"
@@ -79,8 +79,8 @@ contract vGlobalMinter is IvGlobalMinter, Ownable {
     /// @inheritdoc IvGlobalMinter
     function newVesting(
         address beneficiary,
-        uint256 startTs,
-        uint256 duration,
+        uint32 startTs,
+        uint32 duration,
         uint256 amount
     ) external override onlyOwner returns (address vestingWallet) {
         require(block.timestamp >= emissionStartTs, "too early");
@@ -130,8 +130,8 @@ contract vGlobalMinter is IvGlobalMinter, Ownable {
 
     /// @inheritdoc IvGlobalMinter
     function setEpochParams(
-        uint256 _epochDuration,
-        uint256 _epochPreparationTime
+        uint32 _epochDuration,
+        uint32 _epochPreparationTime
     ) external override onlyOwner {
         require(
             _epochPreparationTime > 0 && _epochDuration > 0,
@@ -170,6 +170,6 @@ contract vGlobalMinter is IvGlobalMinter, Ownable {
         while (block.timestamp >= _startEpochTime) {
             _startEpochTime += _epochDuration;
         }
-        startEpochTime = _startEpochTime;
+        startEpochTime = uint32(_startEpochTime);
     }
 }

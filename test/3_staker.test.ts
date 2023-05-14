@@ -88,7 +88,7 @@ describe('vStaker', function () {
 
         // skip time to emissionStart
         await time.setNextBlockTimestamp(
-            (await globalMinter.emissionStartTs()).add(60)
+            ethers.BigNumber.from(await globalMinter.emissionStartTs()).add(60)
         );
 
         // get vrsw tokens for testing
@@ -729,7 +729,7 @@ describe('vStakerFactory', function () {
 
         // skip time to emissionStart
         await time.setNextBlockTimestamp(
-            (await globalMinter.emissionStartTs()).add(60)
+            ethers.BigNumber.from(await globalMinter.emissionStartTs()).add(60)
         );
 
         // get vrsw tokens for testing

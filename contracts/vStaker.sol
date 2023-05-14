@@ -82,7 +82,7 @@ contract vStaker is IvStaker {
         _;
     }
 
-    modifier positiveLockDuration(uint256 lockDuration) {
+    modifier positiveLockDuration(uint128 lockDuration) {
         require(lockDuration > 0, "insufficient lock duration");
         _;
     }
@@ -213,7 +213,7 @@ contract vStaker is IvStaker {
     /// @inheritdoc IvStaker
     function lockVrsw(
         uint256 amount,
-        uint256 lockDuration
+        uint128 lockDuration
     )
         external
         override
@@ -243,7 +243,7 @@ contract vStaker is IvStaker {
     /// @inheritdoc IvStaker
     function lockStakedVrsw(
         uint256 amount,
-        uint256 lockDuration
+        uint128 lockDuration
     )
         external
         override
@@ -338,11 +338,11 @@ contract vStaker is IvStaker {
      * @param amount Amount of VRSW tokens to stake
      * @param lockDuration Duration of the lock period for the stake
      */
-    function _newStakePosition(uint256 amount, uint256 lockDuration) private {
+    function _newStakePosition(uint256 amount, uint128 lockDuration) private {
         Stake[] storage senderStakes = stakes[msg.sender];
         senderStakes.push(
             Stake(
-                block.timestamp,
+                uint128(block.timestamp),
                 lockDuration,
                 exp(
                     IvTokenomicsParams(tokenomicsParams).r().mul(
@@ -369,7 +369,7 @@ contract vStaker is IvStaker {
         Stake memory oldStake = senderStakes[0];
 
         senderStakes[0] = Stake(
-            block.timestamp,
+            uint128(block.timestamp),
             0,
             oldStake
                 .amount
@@ -418,9 +418,10 @@ contract vStaker is IvStaker {
                 senderStakes[i].amount.mul(senderStakes[i].discountFactor).mul(
                     UNIT.add(
                         IvTokenomicsParams(tokenomicsParams).b().mul(
-                            sd(int256(senderStakes[i].lockDuration) * 1e18).pow(
-                                IvTokenomicsParams(tokenomicsParams).gamma()
-                            )
+                            sd(
+                                int256(uint256(senderStakes[i].lockDuration)) *
+                                    1e18
+                            ).pow(IvTokenomicsParams(tokenomicsParams).gamma())
                         )
                     )
                 )

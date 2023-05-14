@@ -6,9 +6,9 @@ import {SD59x18} from "@prb/math/src/SD59x18.sol";
 
 struct Stake {
     // start timestamp of the current position
-    uint256 startTs;
+    uint128 startTs;
     // lock duration of the current posisiton (0 if position is not locked)
-    uint256 lockDuration;
+    uint128 lockDuration;
     // discount factor for the current position equals exp(lockDuration * r)
     // used in formula (3) in Virtuswap Tokenomics Whitepaper
     SD59x18 discountFactor;

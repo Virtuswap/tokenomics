@@ -16,8 +16,8 @@ interface IvGlobalMinter {
     event NewVesting(
         address vestingWallet,
         address beneficiary,
-        uint256 startTs,
-        uint256 duration
+        uint32 startTs,
+        uint32 duration
     );
 
     function getAllVestingWallets() external view returns (address[] memory);
@@ -52,8 +52,8 @@ interface IvGlobalMinter {
      * - The caller must be the owner of the contract.
      */
     function setEpochParams(
-        uint256 _epochDuration,
-        uint256 _epochPreparationTime
+        uint32 _epochDuration,
+        uint32 _epochPreparationTime
     ) external;
 
     /**
@@ -69,8 +69,8 @@ interface IvGlobalMinter {
      */
     function newVesting(
         address beneficiary,
-        uint256 startTs,
-        uint256 duration,
+        uint32 startTs,
+        uint32 duration,
         uint256 amount
     ) external returns (address vestingWallet);
 

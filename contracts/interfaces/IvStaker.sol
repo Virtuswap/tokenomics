@@ -49,7 +49,7 @@ interface IvStaker {
      *@param amount Amount of VRSW tokens being locked.
      *@param lockDuration Duration in seconds for which the tokens are locked.
      */
-    event LockVrsw(address indexed who, uint256 amount, uint256 lockDuration);
+    event LockVrsw(address indexed who, uint256 amount, uint128 lockDuration);
 
     /**
      *@notice Emitted when who locks amount of staked VRSW tokens for lockDuration seconds.
@@ -60,7 +60,7 @@ interface IvStaker {
     event LockStakedVrsw(
         address indexed who,
         uint256 amount,
-        uint256 lockDuration
+        uint128 lockDuration
     );
 
     /**
@@ -121,14 +121,14 @@ interface IvStaker {
      *@param amount The amount of VRSW tokens to lock.
      *@param lockDuration The duration of time to lock the tokens for.
      */
-    function lockVrsw(uint256 amount, uint256 lockDuration) external;
+    function lockVrsw(uint256 amount, uint128 lockDuration) external;
 
     /**
      * @notice Locks a specified amount of staked VRSW tokens for a specified duration.
      * @param amount The amount of VRSW tokens to lock.
      * @param lockDuration The duration to lock the tokens for, in seconds.
      */
-    function lockStakedVrsw(uint256 amount, uint256 lockDuration) external;
+    function lockStakedVrsw(uint256 amount, uint128 lockDuration) external;
 
     /**
      *@notice Allows the user to unstake VRSW tokens from the contract.

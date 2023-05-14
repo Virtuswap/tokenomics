@@ -33,24 +33,24 @@ contract vChainMinter is IvChainMinter, Ownable {
     uint256 public nextEpochBalance;
 
     // current epoch duration (in seconds)
-    uint256 public epochDuration;
+    uint32 public epochDuration;
 
     // the time (in seconds) before the next epoch to transfer the necessary
     // amount of VRSW tokens for the next epoch to distribute
-    uint256 public epochPreparationTime;
+    uint32 public epochPreparationTime;
 
     // the next epoch duration
     // if the value is zero then the next epoch duration is the same as the current
     // epoch duration
-    uint256 public nextEpochDuration;
+    uint32 public nextEpochDuration;
 
     // the next epoch preparation time
     // if the value is zero then the next epoch preparation time is the same as
     // the current epoch preparation time
-    uint256 public nextEpochPreparationTime;
+    uint32 public nextEpochPreparationTime;
 
     // the timestamp of the current epoch start
-    uint256 public startEpochTime;
+    uint32 public startEpochTime;
 
     // balance of VRSW tokens when the current epoch started
     uint256 public startEpochSupply;
@@ -87,7 +87,7 @@ contract vChainMinter is IvChainMinter, Ownable {
      * @param _gVrsw Address of the gVRSW token
      */
     constructor(
-        uint256 _emissionStartTs,
+        uint32 _emissionStartTs,
         address _tokenomicsParams,
         address _vrsw,
         address _gVrsw
@@ -137,8 +137,8 @@ contract vChainMinter is IvChainMinter, Ownable {
 
     /// @inheritdoc IvChainMinter
     function setEpochParams(
-        uint256 _epochDuration,
-        uint256 _epochPreparationTime
+        uint32 _epochDuration,
+        uint32 _epochPreparationTime
     ) external override onlyOwner {
         require(
             _epochPreparationTime > 0 && _epochDuration > 0,
