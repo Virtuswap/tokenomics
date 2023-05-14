@@ -159,6 +159,7 @@ contract VChainMinter is IVChainMinter, Ownable {
         address[] calldata _stakers,
         uint256[] calldata _allocationPoints
     ) external override onlyOwner {
+        require(_stakers.length == _allocationPoints.length, "lengths differ");
         if (block.timestamp >= startEpochTime + epochDuration)
             _epochTransition();
 
