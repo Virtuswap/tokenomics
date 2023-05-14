@@ -67,6 +67,10 @@ contract vStakerFactory is IvStakerFactory {
         return stakers[_lpToken];
     }
 
+    function getAllStakers() external view override returns (address[] memory) {
+        return allStakers;
+    }
+
     /// @inheritdoc IvStakerFactory
     function createPoolStaker(
         address _lpToken

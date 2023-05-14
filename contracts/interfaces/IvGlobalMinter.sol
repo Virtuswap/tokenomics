@@ -20,6 +20,8 @@ interface IvGlobalMinter {
         uint256 duration
     );
 
+    function getAllVestingWallets() external view returns (address[] memory);
+
     /**
      * @notice Adds new vChainMinter. Should be called whenever new vChainMinter
      * is deployed on the new chain. Currently the transfers between chains are

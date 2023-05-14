@@ -45,6 +45,8 @@ interface IvStakerFactory {
      */
     function getPoolStaker(address lpToken) external view returns (address);
 
+    function getAllStakers() external view returns (address[] memory);
+
     /**
      * @notice Function to get the staker contract address for VRSW-only staking
      * @return The address of the staker contract
