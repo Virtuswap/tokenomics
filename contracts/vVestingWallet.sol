@@ -60,6 +60,19 @@ contract vVestingWallet {
     }
 
     /**
+     * @dev Release the tokens that have already vested.
+     *
+     * Emits a {ERC20Released} event.
+     */
+    function release() external {
+        require(msg.sender == beneficiary(), "only beneficiary");
+        uint256 amount = releasable();
+        _erc20Released += amount;
+        emit ERC20Released(_erc20Token, amount);
+        SafeERC20.safeTransfer(IERC20(_erc20Token), beneficiary(), amount);
+    }
+
+    /**
      * @dev Getter for the beneficiary address.
      */
     function beneficiary() public view returns (address) {
@@ -92,19 +105,6 @@ contract vVestingWallet {
      */
     function releasable() public view returns (uint256) {
         return vestedAmount(uint64(block.timestamp)) - released();
-    }
-
-    /**
-     * @dev Release the tokens that have already vested.
-     *
-     * Emits a {ERC20Released} event.
-     */
-    function release() external {
-        require(msg.sender == beneficiary(), "only beneficiary");
-        uint256 amount = releasable();
-        _erc20Released += amount;
-        emit ERC20Released(_erc20Token, amount);
-        SafeERC20.safeTransfer(IERC20(_erc20Token), beneficiary(), amount);
     }
 
     /**

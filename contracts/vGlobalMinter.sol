@@ -71,15 +71,6 @@ contract vGlobalMinter is IvGlobalMinter, Ownable {
         gVrsw = new GVrsw(address(this));
     }
 
-    function getAllVestingWallets()
-        external
-        view
-        override
-        returns (address[] memory)
-    {
-        return vestingWallets;
-    }
-
     /// @inheritdoc IvGlobalMinter
     function addChainMinter() external override onlyOwner {
         gVrsw.mint(msg.sender, 1e9 * 1e18);
@@ -154,6 +145,15 @@ contract vGlobalMinter is IvGlobalMinter, Ownable {
             _epochPreparationTime,
             _epochDuration
         );
+    }
+
+    function getAllVestingWallets()
+        external
+        view
+        override
+        returns (address[] memory)
+    {
+        return vestingWallets;
     }
 
     function _epochTransition() private {

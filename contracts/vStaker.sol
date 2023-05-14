@@ -167,23 +167,6 @@ contract vStaker is IvStaker {
     }
 
     /// @inheritdoc IvStaker
-    function viewRewards(
-        address who
-    ) external view override returns (uint256 rewards) {
-        rewards = _calculateAccruedRewards(who, false);
-    }
-
-    /// @inheritdoc IvStaker
-    function viewStakes()
-        external
-        view
-        override
-        returns (Stake[] memory _stakes)
-    {
-        _stakes = stakes[msg.sender];
-    }
-
-    /// @inheritdoc IvStaker
     function unstakeLp(
         uint256 amount
     )
@@ -283,6 +266,31 @@ contract vStaker is IvStaker {
     }
 
     /// @inheritdoc IvStaker
+    function unlockVrsw(
+        address who,
+        uint256 position
+    ) external override notBefore(emissionStartTs) {
+        require(position > 0, "invalid position");
+        require(who != address(0), "zero address");
+
+        Stake memory userStake = stakes[who][position];
+        require(
+            userStake.startTs + userStake.lockDuration <= block.timestamp,
+            "locked"
+        );
+
+        uint256 vrswToUnlock = uint256(unwrap(userStake.amount));
+
+        _updateStateBefore(who);
+        stakes[who][position] = stakes[who][stakes[who].length - 1];
+        stakes[who].pop();
+        _stakeUnlocked(who, vrswToUnlock);
+        _updateStateAfter(who);
+
+        emit UnlockVrsw(who, vrswToUnlock);
+    }
+
+    /// @inheritdoc IvStaker
     function checkLock(
         address who
     ) external view override returns (uint[] memory unlockedPositions) {
@@ -309,28 +317,20 @@ contract vStaker is IvStaker {
     }
 
     /// @inheritdoc IvStaker
-    function unlockVrsw(
-        address who,
-        uint256 position
-    ) external override notBefore(emissionStartTs) {
-        require(position > 0, "invalid position");
-        require(who != address(0), "zero address");
+    function viewRewards(
+        address who
+    ) external view override returns (uint256 rewards) {
+        rewards = _calculateAccruedRewards(who, false);
+    }
 
-        Stake memory userStake = stakes[who][position];
-        require(
-            userStake.startTs + userStake.lockDuration <= block.timestamp,
-            "locked"
-        );
-
-        uint256 vrswToUnlock = uint256(unwrap(userStake.amount));
-
-        _updateStateBefore(who);
-        stakes[who][position] = stakes[who][stakes[who].length - 1];
-        stakes[who].pop();
-        _stakeUnlocked(who, vrswToUnlock);
-        _updateStateAfter(who);
-
-        emit UnlockVrsw(who, vrswToUnlock);
+    /// @inheritdoc IvStaker
+    function viewStakes()
+        external
+        view
+        override
+        returns (Stake[] memory _stakes)
+    {
+        _stakes = stakes[msg.sender];
     }
 
     /**
@@ -389,6 +389,51 @@ contract vStaker is IvStaker {
                 .div(oldStake.amount.add(sd(int256(amount)))),
             oldStake.amount.add(sd(int256(amount)))
         );
+    }
+
+    /**
+     * @dev Updates the state of the staker before the update
+     * @param who The staker address
+     */
+    function _updateStateBefore(address who) private {
+        (
+            totalVrswAvailable,
+            rewardPoints[who],
+            totalRewardPoints,
+            compoundRate[who],
+            compoundRateGlobal
+        ) = _calculateStateBefore(who);
+    }
+
+    /**
+     * @dev Updates the state of the staker after the update
+     * @param who The staker address
+     */
+    function _updateStateAfter(address who) private {
+        Stake[] storage senderStakes = stakes[who];
+        SD59x18 mult;
+        uint256 stakesLength = senderStakes.length;
+        for (uint256 i = 0; i < stakesLength; ++i) {
+            mult = mult.add(
+                senderStakes[i].amount.mul(senderStakes[i].discountFactor).mul(
+                    UNIT.add(
+                        IvTokenomicsParams(tokenomicsParams).b().mul(
+                            sd(int256(senderStakes[i].lockDuration) * 1e18).pow(
+                                IvTokenomicsParams(tokenomicsParams).gamma()
+                            )
+                        )
+                    )
+                )
+            );
+        }
+        mult = mult.add(UNIT);
+        SD59x18 muNew = (
+            lpToken == address(0)
+                ? UNIT
+                : lpStake[who].pow(IvTokenomicsParams(tokenomicsParams).alpha())
+        ).mul(mult.pow(IvTokenomicsParams(tokenomicsParams).beta()));
+        totalMu = totalMu.add(muNew.sub(mu[who]));
+        mu[who] = muNew;
     }
 
     /**
@@ -477,50 +522,5 @@ contract vStaker is IvStaker {
             totalMu.mul(deltaCompoundRateGlobal)
         );
         _senderCompoundRate = compoundRate[who].add(deltaCompoundRate);
-    }
-
-    /**
-     * @dev Updates the state of the staker before the update
-     * @param who The staker address
-     */
-    function _updateStateBefore(address who) private {
-        (
-            totalVrswAvailable,
-            rewardPoints[who],
-            totalRewardPoints,
-            compoundRate[who],
-            compoundRateGlobal
-        ) = _calculateStateBefore(who);
-    }
-
-    /**
-     * @dev Updates the state of the staker after the update
-     * @param who The staker address
-     */
-    function _updateStateAfter(address who) private {
-        Stake[] storage senderStakes = stakes[who];
-        SD59x18 mult;
-        uint256 stakesLength = senderStakes.length;
-        for (uint256 i = 0; i < stakesLength; ++i) {
-            mult = mult.add(
-                senderStakes[i].amount.mul(senderStakes[i].discountFactor).mul(
-                    UNIT.add(
-                        IvTokenomicsParams(tokenomicsParams).b().mul(
-                            sd(int256(senderStakes[i].lockDuration) * 1e18).pow(
-                                IvTokenomicsParams(tokenomicsParams).gamma()
-                            )
-                        )
-                    )
-                )
-            );
-        }
-        mult = mult.add(UNIT);
-        SD59x18 muNew = (
-            lpToken == address(0)
-                ? UNIT
-                : lpStake[who].pow(IvTokenomicsParams(tokenomicsParams).alpha())
-        ).mul(mult.pow(IvTokenomicsParams(tokenomicsParams).beta()));
-        totalMu = totalMu.add(muNew.sub(mu[who]));
-        mu[who] = muNew;
     }
 }

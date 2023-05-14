@@ -56,22 +56,6 @@ contract vStakerFactory is IvStakerFactory {
     }
 
     /// @inheritdoc IvStakerFactory
-    function getVRSWPoolStaker() external view override returns (address) {
-        return stakers[address(0)];
-    }
-
-    /// @inheritdoc IvStakerFactory
-    function getPoolStaker(
-        address _lpToken
-    ) external view override returns (address) {
-        return stakers[_lpToken];
-    }
-
-    function getAllStakers() external view override returns (address[] memory) {
-        return allStakers;
-    }
-
-    /// @inheritdoc IvStakerFactory
     function createPoolStaker(
         address _lpToken
     ) external override onlyAdmin returns (address staker) {
@@ -104,5 +88,21 @@ contract vStakerFactory is IvStakerFactory {
         admin = pendingAdmin;
         pendingAdmin = address(0);
         emit StakerFactoryNewAdmin(admin);
+    }
+
+    /// @inheritdoc IvStakerFactory
+    function getVRSWPoolStaker() external view override returns (address) {
+        return stakers[address(0)];
+    }
+
+    /// @inheritdoc IvStakerFactory
+    function getPoolStaker(
+        address _lpToken
+    ) external view override returns (address) {
+        return stakers[_lpToken];
+    }
+
+    function getAllStakers() external view override returns (address[] memory) {
+        return allStakers;
     }
 }

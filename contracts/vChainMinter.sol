@@ -286,6 +286,21 @@ contract vChainMinter is IvChainMinter, Ownable {
         return stakerInfo.totalCompoundRate;
     }
 
+    function _epochTransition() private {
+        startEpochTime += epochDuration;
+        startEpochSupply += currentEpochBalance;
+        currentEpochBalance = nextEpochBalance;
+        if (nextEpochDuration > 0) {
+            epochDuration = nextEpochDuration;
+            nextEpochDuration = 0;
+        }
+        if (nextEpochPreparationTime > 0) {
+            epochPreparationTime = nextEpochPreparationTime;
+            nextEpochPreparationTime = 0;
+        }
+        nextEpochBalance = 0;
+    }
+
     /**
      * @dev Updates the specified staker's allocation information based on the current state of the emission.
      * @param stakerInfo The current allocation information for the staker.
@@ -317,21 +332,6 @@ contract vChainMinter is IvChainMinter, Ownable {
         stakerInfo.lastUpdated = uint128(
             Math.max(block.timestamp, _emissionStartTs)
         );
-    }
-
-    function _epochTransition() private {
-        startEpochTime += epochDuration;
-        startEpochSupply += currentEpochBalance;
-        currentEpochBalance = nextEpochBalance;
-        if (nextEpochDuration > 0) {
-            epochDuration = nextEpochDuration;
-            nextEpochDuration = 0;
-        }
-        if (nextEpochPreparationTime > 0) {
-            epochPreparationTime = nextEpochPreparationTime;
-            nextEpochPreparationTime = 0;
-        }
-        nextEpochBalance = 0;
     }
 
     function _availableTokens() private view returns (uint256) {
