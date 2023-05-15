@@ -116,6 +116,8 @@ interface IVChainMinter {
      */
     function burnGVrsw(address from, uint256 amount) external;
 
+    function triggerEpochTransition() external;
+
     /**
      * @notice Calculates the amount of tokens a staker is eligible to receive from VRSW algorithmic emission.
      * @param staker The address of the staker.

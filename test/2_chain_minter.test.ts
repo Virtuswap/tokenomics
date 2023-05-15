@@ -116,11 +116,20 @@ describe('vChainMinter 1', function () {
     });
 
     it('prepareForNextEpoch works', async () => {
+        await time.setNextBlockTimestamp(
+            ethers.BigNumber.from(await globalMinter.emissionStartTs()).sub(1000)
+        );
         // epoch #0
         const balanceBefore = await vrsw.balanceOf(accounts[0].address);
         await minter.prepareForNextEpoch(balanceBefore.div(2));
         const balanceAfter = await vrsw.balanceOf(accounts[0].address);
         expect(balanceAfter).to.be.below(balanceBefore);
+
+        await time.setNextBlockTimestamp(
+            ethers.BigNumber.from(await globalMinter.emissionStartTs())
+        );
+
+        await minter.triggerEpochTransition();
 
         // epoch #1
         await time.setNextBlockTimestamp(

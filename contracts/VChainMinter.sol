@@ -113,16 +113,22 @@ contract VChainMinter is IVChainMinter, Ownable {
     ) external override onlyOwner {
         uint256 currentEpochEnd = startEpochTime + epochDuration;
         require(
-            block.timestamp + epochPreparationTime >= currentEpochEnd,
+            block.timestamp + epochPreparationTime >= currentEpochEnd &&
+                block.timestamp < currentEpochEnd,
             "Too early"
         );
+        int256 diff = int256(nextBalance) - int256(nextEpochBalance);
         nextEpochBalance = nextBalance;
-        SafeERC20.safeTransferFrom(
-            IERC20(vrsw),
-            msg.sender,
-            address(this),
-            nextBalance
-        );
+        if (diff > 0) {
+            SafeERC20.safeTransferFrom(
+                IERC20(vrsw),
+                msg.sender,
+                address(this),
+                uint256(diff)
+            );
+        } else if (diff < 0) {
+            SafeERC20.safeTransfer(IERC20(vrsw), msg.sender, uint256(-diff));
+        }
     }
 
     /// @inheritdoc IVChainMinter
@@ -251,6 +257,11 @@ contract VChainMinter is IVChainMinter, Ownable {
             "invalid staker"
         );
         SafeERC20.safeTransferFrom(IERC20(gVrsw), from, address(this), amount);
+    }
+
+    function triggerEpochTransition() external override {
+        require(block.timestamp >= startEpochTime + epochDuration, "Too early");
+        _epochTransition();
     }
 
     /// @inheritdoc IVChainMinter
