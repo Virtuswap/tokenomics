@@ -311,6 +311,16 @@ contract VChainMinter is IVChainMinter, Ownable {
             nextEpochPreparationTime = 0;
         }
         nextEpochBalance = 0;
+        uint256 _startEpochTime = startEpochTime;
+        uint256 _epochDuration = epochDuration;
+        if (block.timestamp >= _startEpochTime + _epochDuration) {
+            startEpochSupply += currentEpochBalance;
+            currentEpochBalance = 0;
+        }
+        while (block.timestamp >= _startEpochTime + _epochDuration) {
+            _startEpochTime += _epochDuration;
+        }
+        startEpochTime = uint32(_startEpochTime);
     }
 
     /**
