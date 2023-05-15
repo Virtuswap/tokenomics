@@ -359,15 +359,21 @@ contract VChainMinter is IVChainMinter, Ownable {
     function _availableTokens() private view returns (uint256) {
         return
             startEpochSupply +
-            ((block.timestamp - startEpochTime) * currentEpochBalance) /
+            (Math.min(block.timestamp - startEpochTime, epochDuration) *
+                currentEpochBalance) /
             epochDuration;
     }
 
     function _availableTokensForNextEpoch() private view returns (uint256) {
+        uint32 _nextEpochDuration = (
+            nextEpochDuration > 0 ? nextEpochDuration : epochDuration
+        );
         return
             (startEpochSupply + currentEpochBalance) +
-            ((block.timestamp - startEpochTime - epochDuration) *
-                nextEpochBalance) /
-            (nextEpochDuration > 0 ? nextEpochDuration : epochDuration);
+            (Math.min(
+                block.timestamp - startEpochTime - epochDuration,
+                _nextEpochDuration
+            ) * nextEpochBalance) /
+            _nextEpochDuration;
     }
 }
