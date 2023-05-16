@@ -42,7 +42,7 @@ contract VGlobalMinter is IVGlobalMinter, Ownable {
     uint32 public nextEpochPreparationTime;
 
     // timestamp of VRSW emission start
-    uint32 public immutable emissionStartTs;
+    uint32 public emissionStartTs;
 
     // balance that is available for arbitraryTransfer and newVesting functions
     uint256 public unlockedBalance;
@@ -83,7 +83,6 @@ contract VGlobalMinter is IVGlobalMinter, Ownable {
         uint32 duration,
         uint256 amount
     ) external override onlyOwner returns (address vestingWallet) {
-        require(block.timestamp >= emissionStartTs, "too early");
         require(amount <= unlockedBalance, "not enough unlocked tokens");
         require(amount > 0, "amount must be positive");
         vestingWallet = address(
@@ -105,11 +104,16 @@ contract VGlobalMinter is IVGlobalMinter, Ownable {
         address to,
         uint256 amount
     ) external override onlyOwner {
-        require(block.timestamp >= emissionStartTs, "too early");
         require(amount <= unlockedBalance, "not enough unlocked tokens");
         require(amount > 0, "amount must be positive");
         unlockedBalance -= amount;
         SafeERC20.safeTransfer(IERC20(vrsw), to, amount);
+    }
+
+    function delayEmissionStart(uint32 newEmissionStartTs) external onlyOwner {
+        require(newEmissionStartTs > block.timestamp, "cannot be in the past");
+        require(block.timestamp < emissionStartTs, "emission has begun");
+        emissionStartTs = newEmissionStartTs;
     }
 
     /// @inheritdoc IVGlobalMinter
