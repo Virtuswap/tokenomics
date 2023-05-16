@@ -203,9 +203,7 @@ contract VChainMinter is IVChainMinter, Ownable {
 
     /// @inheritdoc IVChainMinter
     function transferRewards(address to, uint256 amount) external override {
-        require(to != address(0), "zero address");
         require(block.timestamp >= emissionStartTs, "too early");
-        require(amount > 0, "zero amount");
         require(
             IVStakerFactory(stakerFactory).getPoolStaker(
                 IVStaker(msg.sender).lpToken()
@@ -222,11 +220,6 @@ contract VChainMinter is IVChainMinter, Ownable {
             _availableTokens()
         );
 
-        require(
-            amount <= stakerInfo.totalAllocated - stakerInfo.totalTransferred,
-            "not enough tokens"
-        );
-
         stakerInfo.totalTransferred += uint128(amount);
         stakers[msg.sender] = stakerInfo;
         SafeERC20.safeTransfer(IERC20(vrsw), to, amount);
@@ -235,7 +228,6 @@ contract VChainMinter is IVChainMinter, Ownable {
 
     /// @inheritdoc IVChainMinter
     function mintGVrsw(address to, uint256 amount) external override {
-        require(to != address(0), "zero address");
         require(amount > 0, "zero amount");
         require(
             IVStakerFactory(stakerFactory).getPoolStaker(
@@ -248,7 +240,6 @@ contract VChainMinter is IVChainMinter, Ownable {
 
     /// @inheritdoc IVChainMinter
     function burnGVrsw(address from, uint256 amount) external override {
-        require(from != address(0), "zero address");
         require(amount > 0, "zero amount");
         require(
             IVStakerFactory(stakerFactory).getPoolStaker(
