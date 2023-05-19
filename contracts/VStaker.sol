@@ -12,7 +12,7 @@ import "./interfaces/IVTokenomicsParams.sol";
 
 contract VStaker is IVStaker {
     uint256 public constant LOCK_DURATION_LIMIT = 3 * 12 * 4 weeks;
-    uint256 public constant STAKE_POSITIONS_LIMIT = 20;
+    uint256 public constant STAKE_POSITIONS_LIMIT = 21;
 
     /**
      * @dev The amount of LP tokens staked by each user.
