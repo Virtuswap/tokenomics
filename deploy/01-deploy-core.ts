@@ -31,19 +31,33 @@ const deployCore: DeployFunction = async function (
         timestamp = blockBefore.timestamp;
     }
 
-    const globalMinter = await deploy('globalMinter', {
+    const vrsw = await deploy('vrsw', {
         from: deployer,
-        contract: 'VGlobalMinter',
-        args: [timestamp],
+        contract: 'Vrsw',
+        args: [deployer],
         log: true,
         waitConfirmations: networkConfig[network.name].blockConfirmations || 0,
     });
+
+    const vrswContract = await hre.ethers.getContractAt('Vrsw', vrsw.address);
+
+    const globalMinter = await deploy('globalMinter', {
+        from: deployer,
+        contract: 'VGlobalMinter',
+        args: [timestamp, vrsw.address],
+        log: true,
+        waitConfirmations: networkConfig[network.name].blockConfirmations || 0,
+    });
+
+    await vrswContract.transfer(
+        globalMinter.address,
+        await vrswContract.balanceOf(deployer)
+    );
 
     const globalMinterContract = await hre.ethers.getContractAt(
         'VGlobalMinter',
         globalMinter.address
     );
-    const vrswTokenAddress = await globalMinterContract.vrsw();
     const gVrswTokenAddress = await globalMinterContract.gVrsw();
 
     const chainMinter = await deploy('chainMinter', {
@@ -52,7 +66,7 @@ const deployCore: DeployFunction = async function (
         args: [
             timestamp,
             tokenomicsParams.address,
-            vrswTokenAddress,
+            vrsw.address,
             gVrswTokenAddress,
         ],
         log: true,
@@ -61,7 +75,7 @@ const deployCore: DeployFunction = async function (
     const stakerFactory = await deploy('stakerFactory', {
         from: deployer,
         contract: 'VStakerFactory',
-        args: [vrswTokenAddress, chainMinter.address, tokenomicsParams.address],
+        args: [vrsw.address, chainMinter.address, tokenomicsParams.address],
         log: true,
         waitConfirmations: networkConfig[network.name].blockConfirmations || 0,
     });
@@ -90,11 +104,11 @@ const deployCore: DeployFunction = async function (
         await verify(chainMinter.address, [
             timestamp,
             tokenomicsParams.address,
-            vrswTokenAddress,
+            vrsw.address,
             gVrswTokenAddress,
         ]);
         await verify(stakerFactory.address, [
-            vrswTokenAddress,
+            vrsw.address,
             chainMinter.address,
             tokenomicsParams.address,
         ]);

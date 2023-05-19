@@ -91,6 +91,8 @@ describe('vStaker', function () {
             ethers.BigNumber.from(await globalMinter.emissionStartTs()).add(60)
         );
 
+        await minter.triggerEpochTransition();
+
         // get vrsw tokens for testing
         await globalMinter.arbitraryTransfer(
             accounts[0].address,
@@ -108,15 +110,11 @@ describe('vStaker', function () {
         const muBefore = await staker.mu(accounts[0].address);
         const totalMuBefore = await staker.totalMu();
         const totalVrswBefore = await staker.totalVrswAvailable();
-        const compoundRateGlobalBefore = await staker.compoundRateGlobal();
-        const totalRewardPointsBefore = await staker.totalRewardPoints();
         const rewardsBefore = await staker.viewRewards(accounts[0].address);
         await staker.claimRewards();
         const rewardsAfter = await staker.viewRewards(accounts[0].address);
-        const totalRewardPointsAfter = await staker.totalRewardPoints();
         const accountBalanceAfter = await vrsw.balanceOf(accounts[0].address);
         const contractBalanceAfter = await vrsw.balanceOf(minter.address);
-        const compoundRateGlobalAfter = await staker.compoundRateGlobal();
 
         expect(rewardsAfter).to.be.equal('0');
         expect(rewardsBefore).to.be.equal('0');
@@ -125,16 +123,6 @@ describe('vStaker', function () {
         expect(await staker.mu(accounts[0].address)).to.equal(muBefore);
         expect(await staker.totalMu()).to.equal(totalMuBefore);
         expect(await staker.totalVrswAvailable()).to.be.above(totalVrswBefore);
-        expect(await staker.compoundRateGlobal()).to.be.above(
-            compoundRateGlobalBefore
-        );
-        expect(totalRewardPointsAfter).to.be.equal(totalRewardPointsBefore);
-        expect(await staker.rewardPoints(accounts[0].address)).to.be.equal(
-            totalRewardPointsAfter
-        );
-        expect(await staker.compoundRate(accounts[0].address)).to.be.equal(
-            compoundRateGlobalAfter
-        );
     });
 
     it('lockStakedVrsw fails if there is no stakes', async () => {
@@ -152,7 +140,6 @@ describe('vStaker', function () {
         await staker.stakeLp(amount);
         const accountBalanceAfter = await token0.balanceOf(accounts[0].address);
         const contractBalanceAfter = await token0.balanceOf(staker.address);
-        const compoundRateGlobal = await staker.compoundRateGlobal();
         expect(accountBalanceAfter).to.be.equal(
             accountBalanceBefore.sub(amount)
         );
@@ -163,16 +150,12 @@ describe('vStaker', function () {
         expect(await staker.mu(accounts[0].address)).to.equal(amount);
         expect(await staker.totalMu()).to.equal(amount);
         expect(await staker.totalVrswAvailable()).to.be.above('0');
-        expect(await staker.compoundRateGlobal()).to.be.above('0');
-        expect(await staker.totalRewardPoints()).to.be.equal('0');
-        expect(await staker.rewardPoints(accounts[0].address)).to.be.equal('0');
-        expect(await staker.compoundRate(accounts[0].address)).to.be.equal(
-            compoundRateGlobal
-        );
     });
 
     it('stakeLp fails when zero amount', async () => {
-        await expect(staker.stakeLp('0')).to.be.revertedWith('insufficient amount');
+        await expect(staker.stakeLp('0')).to.be.revertedWith(
+            'insufficient amount'
+        );
     });
 
     it('stakeLp fails if try to stake in VRSW-only pool', async () => {
@@ -204,12 +187,9 @@ describe('vStaker', function () {
         );
         const contractBalanceBefore = await token0.balanceOf(staker.address);
         const totalVrswBefore = await staker.totalVrswAvailable();
-        const compoundRateGlobalBefore = await staker.compoundRateGlobal();
         await staker.unstakeLp(amount);
         const accountBalanceAfter = await token0.balanceOf(accounts[0].address);
         const contractBalanceAfter = await token0.balanceOf(staker.address);
-        const compoundRateGlobal = await staker.compoundRateGlobal();
-        const totalRewardPoints = await staker.totalRewardPoints();
         expect(accountBalanceAfter).to.be.equal(
             accountBalanceBefore.add(amount)
         );
@@ -220,16 +200,6 @@ describe('vStaker', function () {
         expect(await staker.mu(accounts[0].address)).to.equal(amount);
         expect(await staker.totalMu()).to.equal(amount);
         expect(await staker.totalVrswAvailable()).to.be.above(totalVrswBefore);
-        expect(await staker.compoundRateGlobal()).to.be.above(
-            compoundRateGlobalBefore
-        );
-        expect(totalRewardPoints).to.be.above('0');
-        expect(await staker.rewardPoints(accounts[0].address)).to.be.equal(
-            totalRewardPoints
-        );
-        expect(await staker.compoundRate(accounts[0].address)).to.be.equal(
-            compoundRateGlobal
-        );
     });
 
     it('unstakeLp fails when zero amount', async () => {
@@ -251,38 +221,19 @@ describe('vStaker', function () {
         const muBefore = await staker.mu(accounts[0].address);
         const totalMuBefore = await staker.totalMu();
         const totalVrswBefore = await staker.totalVrswAvailable();
-        const compoundRateGlobalBefore = await staker.compoundRateGlobal();
-        const totalRewardPointsBefore = await staker.totalRewardPoints();
         const rewardsBefore = await staker.viewRewards(accounts[0].address);
         await staker.claimRewards();
         const rewardsAfter = await staker.viewRewards(accounts[0].address);
-        const totalRewardPointsAfter = await staker.totalRewardPoints();
         const accountBalanceAfter = await vrsw.balanceOf(accounts[0].address);
         const contractBalanceAfter = await vrsw.balanceOf(minter.address);
-        const rewardsClaimed = await staker.rewardsClaimed(accounts[0].address);
-        const compoundRateGlobalAfter = await staker.compoundRateGlobal();
 
+        expect(accountBalanceAfter).to.be.above(accountBalanceBefore);
+        expect(contractBalanceAfter).to.be.below(contractBalanceBefore);
         expect(rewardsAfter).to.be.equal('0');
         expect(rewardsBefore).to.be.above('0');
-        expect(accountBalanceAfter).to.be.equal(
-            accountBalanceBefore.add(rewardsClaimed)
-        );
-        expect(contractBalanceAfter).to.be.equal(
-            contractBalanceBefore.sub(rewardsClaimed)
-        );
         expect(await staker.mu(accounts[0].address)).to.equal(muBefore);
         expect(await staker.totalMu()).to.equal(totalMuBefore);
         expect(await staker.totalVrswAvailable()).to.be.above(totalVrswBefore);
-        expect(await staker.compoundRateGlobal()).to.be.above(
-            compoundRateGlobalBefore
-        );
-        expect(totalRewardPointsAfter).to.be.above(totalRewardPointsBefore);
-        expect(await staker.rewardPoints(accounts[0].address)).to.be.equal(
-            totalRewardPointsAfter
-        );
-        expect(await staker.compoundRate(accounts[0].address)).to.be.equal(
-            compoundRateGlobalAfter
-        );
     });
 
     it('unstakeVrsw fails if there is no stakes', async () => {
@@ -307,16 +258,12 @@ describe('vStaker', function () {
         const muBefore = await staker.mu(accounts[0].address);
         const totalMuBefore = await staker.totalMu();
         const totalVrswBefore = await staker.totalVrswAvailable();
-        const compoundRateGlobalBefore = await staker.compoundRateGlobal();
-        const totalRewardPointsBefore = await staker.totalRewardPoints();
         await staker.stakeVrsw(amount);
         const gVrswAccountBalanceAfter = await gVrsw.balanceOf(
             accounts[0].address
         );
-        const totalRewardPointsAfter = await staker.totalRewardPoints();
         const accountBalanceAfter = await vrsw.balanceOf(accounts[0].address);
         const contractBalanceAfter = await vrsw.balanceOf(staker.address);
-        const compoundRateGlobalAfter = await staker.compoundRateGlobal();
 
         expect(accountBalanceAfter).to.be.equal(
             accountBalanceBefore.sub(amount)
@@ -330,16 +277,6 @@ describe('vStaker', function () {
         expect(await staker.mu(accounts[0].address)).to.above(muBefore);
         expect(await staker.totalMu()).to.above(totalMuBefore);
         expect(await staker.totalVrswAvailable()).to.be.above(totalVrswBefore);
-        expect(await staker.compoundRateGlobal()).to.be.above(
-            compoundRateGlobalBefore
-        );
-        expect(totalRewardPointsAfter).to.be.above(totalRewardPointsBefore);
-        expect(await staker.rewardPoints(accounts[0].address)).to.be.equal(
-            totalRewardPointsAfter
-        );
-        expect(await staker.compoundRate(accounts[0].address)).to.be.equal(
-            compoundRateGlobalAfter
-        );
         expect((await staker.stakes(accounts[0].address, 0)).amount).to.equal(
             amount
         );
@@ -353,16 +290,12 @@ describe('vStaker', function () {
         const muBefore = await staker.mu(accounts[0].address);
         const totalMuBefore = await staker.totalMu();
         const totalVrswBefore = await staker.totalVrswAvailable();
-        const compoundRateGlobalBefore = await staker.compoundRateGlobal();
-        const totalRewardPointsBefore = await staker.totalRewardPoints();
         const gVrswAccountBalanceBefore = await gVrsw.balanceOf(
             accounts[0].address
         );
         await staker.stakeVrsw(amount);
-        const totalRewardPointsAfter = await staker.totalRewardPoints();
         const accountBalanceAfter = await vrsw.balanceOf(accounts[0].address);
         const contractBalanceAfter = await vrsw.balanceOf(staker.address);
-        const compoundRateGlobalAfter = await staker.compoundRateGlobal();
         const gVrswAccountBalanceAfter = await gVrsw.balanceOf(
             accounts[0].address
         );
@@ -379,16 +312,6 @@ describe('vStaker', function () {
         expect(await staker.mu(accounts[0].address)).to.above(muBefore);
         expect(await staker.totalMu()).to.above(totalMuBefore);
         expect(await staker.totalVrswAvailable()).to.be.above(totalVrswBefore);
-        expect(await staker.compoundRateGlobal()).to.be.above(
-            compoundRateGlobalBefore
-        );
-        expect(totalRewardPointsAfter).to.be.above(totalRewardPointsBefore);
-        expect(await staker.rewardPoints(accounts[0].address)).to.be.equal(
-            totalRewardPointsAfter
-        );
-        expect(await staker.compoundRate(accounts[0].address)).to.be.equal(
-            compoundRateGlobalAfter
-        );
         expect((await staker.stakes(accounts[0].address, 0)).amount).to.equal(
             amount.mul(2)
         );
@@ -401,8 +324,6 @@ describe('vStaker', function () {
         const muBefore = await staker.mu(accounts[0].address);
         const totalMuBefore = await staker.totalMu();
         const totalVrswBefore = await staker.totalVrswAvailable();
-        const compoundRateGlobalBefore = await staker.compoundRateGlobal();
-        const totalRewardPointsBefore = await staker.totalRewardPoints();
         const gVrswAccountBalanceBefore = await gVrsw.balanceOf(
             accounts[0].address
         );
@@ -411,10 +332,8 @@ describe('vStaker', function () {
             await gVrsw.balanceOf(accounts[0].address)
         );
         await staker.unstakeVrsw(amount);
-        const totalRewardPointsAfter = await staker.totalRewardPoints();
         const accountBalanceAfter = await vrsw.balanceOf(accounts[0].address);
         const contractBalanceAfter = await vrsw.balanceOf(staker.address);
-        const compoundRateGlobalAfter = await staker.compoundRateGlobal();
         const gVrswAccountBalanceAfter = await gVrsw.balanceOf(
             accounts[0].address
         );
@@ -431,18 +350,15 @@ describe('vStaker', function () {
         expect(await staker.mu(accounts[0].address)).to.below(muBefore);
         expect(await staker.totalMu()).to.below(totalMuBefore);
         expect(await staker.totalVrswAvailable()).to.be.above(totalVrswBefore);
-        expect(await staker.compoundRateGlobal()).to.be.above(
-            compoundRateGlobalBefore
-        );
-        expect(totalRewardPointsAfter).to.be.above(totalRewardPointsBefore);
-        expect(await staker.rewardPoints(accounts[0].address)).to.be.equal(
-            totalRewardPointsAfter
-        );
-        expect(await staker.compoundRate(accounts[0].address)).to.be.equal(
-            compoundRateGlobalAfter
-        );
         expect((await staker.stakes(accounts[0].address, 0)).amount).to.equal(
             '0'
+        );
+    });
+
+    it('unstakeVrsw fails if amount is zero', async () => {
+        const amount = ethers.utils.parseEther('0');
+        await expect(staker.unstakeVrsw(amount)).to.revertedWith(
+            'insufficient amount'
         );
     });
 
@@ -462,16 +378,12 @@ describe('vStaker', function () {
         const muBefore = await staker.mu(accounts[0].address);
         const totalMuBefore = await staker.totalMu();
         const totalVrswBefore = await staker.totalVrswAvailable();
-        const compoundRateGlobalBefore = await staker.compoundRateGlobal();
-        const totalRewardPointsBefore = await staker.totalRewardPoints();
         const gVrswAccountBalanceBefore = await gVrsw.balanceOf(
             accounts[0].address
         );
-        await staker.lockVrsw(amount, '15');
-        const totalRewardPointsAfter = await staker.totalRewardPoints();
+        await staker.lockVrsw(amount, '100');
         const accountBalanceAfter = await vrsw.balanceOf(accounts[0].address);
         const contractBalanceAfter = await vrsw.balanceOf(staker.address);
-        const compoundRateGlobalAfter = await staker.compoundRateGlobal();
         const gVrswAccountBalanceAfter = await gVrsw.balanceOf(
             accounts[0].address
         );
@@ -488,16 +400,6 @@ describe('vStaker', function () {
         expect(await staker.mu(accounts[0].address)).to.above(muBefore);
         expect(await staker.totalMu()).to.above(totalMuBefore);
         expect(await staker.totalVrswAvailable()).to.be.above(totalVrswBefore);
-        expect(await staker.compoundRateGlobal()).to.be.above(
-            compoundRateGlobalBefore
-        );
-        expect(totalRewardPointsAfter).to.be.above(totalRewardPointsBefore);
-        expect(await staker.rewardPoints(accounts[0].address)).to.be.equal(
-            totalRewardPointsAfter
-        );
-        expect(await staker.compoundRate(accounts[0].address)).to.be.equal(
-            compoundRateGlobalAfter
-        );
         expect((await staker.stakes(accounts[0].address, 1)).amount).to.equal(
             amount
         );
@@ -510,7 +412,6 @@ describe('vStaker', function () {
         const accountBalanceBefore = await vrsw.balanceOf(accounts[1].address);
         const contractBalanceBefore = await vrsw.balanceOf(staker.address);
         const totalVrswBefore = await staker.totalVrswAvailable();
-        const compoundRateGlobalBefore = await staker.compoundRateGlobal();
         const gVrswAccountBalanceBefore = await gVrsw.balanceOf(
             accounts[1].address
         );
@@ -524,7 +425,6 @@ describe('vStaker', function () {
         ).to.be.equal(2);
         const accountBalanceAfter = await vrsw.balanceOf(accounts[1].address);
         const contractBalanceAfter = await vrsw.balanceOf(staker.address);
-        const compoundRateGlobalAfter = await staker.compoundRateGlobal();
         const gVrswAccountBalanceAfter = await gVrsw.balanceOf(
             accounts[1].address
         );
@@ -539,12 +439,6 @@ describe('vStaker', function () {
             contractBalanceBefore.add(amount)
         );
         expect(await staker.totalVrswAvailable()).to.be.above(totalVrswBefore);
-        expect(await staker.compoundRateGlobal()).to.be.above(
-            compoundRateGlobalBefore
-        );
-        expect(await staker.compoundRate(accounts[1].address)).to.be.equal(
-            compoundRateGlobalAfter
-        );
         expect((await staker.stakes(accounts[1].address, 1)).amount).to.equal(
             amount
         );
@@ -559,7 +453,38 @@ describe('vStaker', function () {
         );
     });
 
-    it('lockVrsw fails if amount is zero', async () => {
+    it('lockVrsw fails when stakes limit is exceeded', async () => {
+        const amount = ethers.utils.parseEther('1');
+        await globalMinter.arbitraryTransfer(
+            accounts[2].address,
+            ethers.utils.parseEther('100')
+        );
+        await vrsw
+            .connect(accounts[2])
+            .approve(staker.address, ethers.utils.parseEther('100'));
+        for (
+            var i = 0;
+            i <
+            (
+                await staker.connect(accounts[2]).STAKE_POSITIONS_LIMIT()
+            ).toNumber();
+            ++i
+        ) {
+            await staker.connect(accounts[2]).lockVrsw(amount, '10');
+        }
+        await expect(
+            staker.connect(accounts[2]).lockVrsw(amount, '10')
+        ).to.revertedWith('stake positions limit is exceeded');
+    });
+
+    it('lockStakedVrsw fails if stakes limits is exceeded', async () => {
+        const amount = ethers.utils.parseEther('1');
+        await expect(
+            staker.connect(accounts[2]).lockStakedVrsw(amount, '10')
+        ).to.revertedWith('stake positions limit is exceeded');
+    });
+
+    it('lockVrsw fails if lockDuration is zero', async () => {
         const amount = ethers.utils.parseEther('10');
         await expect(staker.lockVrsw(amount, '0')).to.revertedWith(
             'insufficient lock duration'
@@ -574,29 +499,15 @@ describe('vStaker', function () {
         const muBefore = await staker.mu(accounts[0].address);
         const totalMuBefore = await staker.totalMu();
         const totalVrswBefore = await staker.totalVrswAvailable();
-        const compoundRateGlobalBefore = await staker.compoundRateGlobal();
-        const totalRewardPointsBefore = await staker.totalRewardPoints();
         await staker.lockStakedVrsw(amount.div(2), '5');
-        const totalRewardPointsAfter = await staker.totalRewardPoints();
         const accountBalanceAfter = await vrsw.balanceOf(accounts[0].address);
         const contractBalanceAfter = await vrsw.balanceOf(staker.address);
-        const compoundRateGlobalAfter = await staker.compoundRateGlobal();
 
         expect(accountBalanceAfter).to.be.equal(accountBalanceBefore);
         expect(contractBalanceAfter).to.be.equal(contractBalanceBefore);
         expect(await staker.mu(accounts[0].address)).to.above(muBefore);
         expect(await staker.totalMu()).to.above(totalMuBefore);
         expect(await staker.totalVrswAvailable()).to.be.above(totalVrswBefore);
-        expect(await staker.compoundRateGlobal()).to.be.above(
-            compoundRateGlobalBefore
-        );
-        expect(totalRewardPointsAfter).to.be.above(totalRewardPointsBefore);
-        expect(await staker.rewardPoints(accounts[0].address)).to.be.equal(
-            totalRewardPointsAfter
-        );
-        expect(await staker.compoundRate(accounts[0].address)).to.be.equal(
-            compoundRateGlobalAfter
-        );
         expect((await staker.stakes(accounts[0].address, 2)).amount).to.equal(
             amount.div(2)
         );
@@ -619,10 +530,24 @@ describe('vStaker', function () {
         );
     });
 
-    it('unlockVrsw fails if position is still locked', async () => {
-        await expect(staker.unlockVrsw(accounts[0].address, 1)).to.revertedWith(
-            'locked'
+    it('lockStakedVrsw fails if amount is zero', async () => {
+        const amount = ethers.utils.parseEther('0');
+        await expect(staker.lockStakedVrsw(amount, '1')).to.revertedWith(
+            'insufficient amount'
         );
+    });
+
+    it('lockStakedVrsw fails if amount is zero', async () => {
+        const amount = ethers.utils.parseEther('0');
+        await expect(staker.lockStakedVrsw(amount, '1')).to.revertedWith(
+            'insufficient amount'
+        );
+    });
+
+    it('unlockVrsw fails if zero address', async () => {
+        await expect(
+            staker.unlockVrsw(ethers.constants.AddressZero, 1)
+        ).to.revertedWith('zero address');
     });
 
     it('unlockVrsw works', async () => {
@@ -633,8 +558,6 @@ describe('vStaker', function () {
         const muBefore = await staker.mu(accounts[0].address);
         const totalMuBefore = await staker.totalMu();
         const totalVrswBefore = await staker.totalVrswAvailable();
-        const compoundRateGlobalBefore = await staker.compoundRateGlobal();
-        const totalRewardPointsBefore = await staker.totalRewardPoints();
         expect(
             (await staker.checkLock(accounts[0].address)).toString()
         ).to.be.equal('2');
@@ -642,10 +565,8 @@ describe('vStaker', function () {
             accounts[0].address
         );
         await staker.unlockVrsw(accounts[0].address, 2);
-        const totalRewardPointsAfter = await staker.totalRewardPoints();
         const unlockedVrswAfter = (await staker.viewStakes())[0].amount;
         const contractBalanceAfter = await vrsw.balanceOf(staker.address);
-        const compoundRateGlobalAfter = await staker.compoundRateGlobal();
         const gVrswAccountBalanceAfter = await gVrsw.balanceOf(
             accounts[0].address
         );
@@ -656,16 +577,6 @@ describe('vStaker', function () {
         expect(await staker.mu(accounts[0].address)).to.below(muBefore);
         expect(await staker.totalMu()).to.below(totalMuBefore);
         expect(await staker.totalVrswAvailable()).to.be.above(totalVrswBefore);
-        expect(await staker.compoundRateGlobal()).to.be.above(
-            compoundRateGlobalBefore
-        );
-        expect(totalRewardPointsAfter).to.be.above(totalRewardPointsBefore);
-        expect(await staker.rewardPoints(accounts[0].address)).to.be.equal(
-            totalRewardPointsAfter
-        );
-        expect(await staker.compoundRate(accounts[0].address)).to.be.equal(
-            compoundRateGlobalAfter
-        );
         expect(await staker.checkLock(accounts[0].address)).to.be.an('array')
             .that.is.empty;
     });
@@ -674,6 +585,52 @@ describe('vStaker', function () {
         await expect(staker.unlockVrsw(accounts[0].address, 0)).to.revertedWith(
             'invalid position'
         );
+    });
+
+    it('unlockVrsw fails if position is still locked', async () => {
+        await expect(staker.unlockVrsw(accounts[0].address, 1)).to.revertedWith(
+            'locked'
+        );
+    });
+
+    it('claimRewards works when epoch has not changed', async () => {
+        await globalMinter.arbitraryTransfer(
+            accounts[0].address,
+            ethers.utils.parseEther('100')
+        );
+        await vrsw.approve(minter.address, ethers.utils.parseEther('10000000'));
+        await time.setNextBlockTimestamp(
+            ethers.BigNumber.from(await globalMinter.emissionStartTs())
+                .add(await globalMinter.epochDuration())
+                .sub(await globalMinter.epochPreparationTime())
+        );
+        await minter.prepareForNextEpoch(
+            await vrsw.balanceOf(accounts[0].address)
+        );
+        await time.setNextBlockTimestamp(
+            ethers.BigNumber.from(await globalMinter.emissionStartTs()).add(
+                await globalMinter.epochDuration()
+            )
+        );
+
+        const accountBalanceBefore = await vrsw.balanceOf(accounts[0].address);
+        const contractBalanceBefore = await vrsw.balanceOf(minter.address);
+        const muBefore = await staker.mu(accounts[0].address);
+        const totalMuBefore = await staker.totalMu();
+        const totalVrswBefore = await staker.totalVrswAvailable();
+        const rewardsBefore = await staker.viewRewards(accounts[0].address);
+        await staker.claimRewards();
+        const rewardsAfter = await staker.viewRewards(accounts[0].address);
+        const accountBalanceAfter = await vrsw.balanceOf(accounts[0].address);
+        const contractBalanceAfter = await vrsw.balanceOf(minter.address);
+
+        expect(rewardsAfter).to.be.equal('0');
+        expect(rewardsBefore).to.be.above('0');
+        expect(accountBalanceAfter).to.be.above(accountBalanceBefore);
+        expect(contractBalanceAfter).to.be.below(contractBalanceBefore);
+        expect(await staker.mu(accounts[0].address)).to.equal(muBefore);
+        expect(await staker.totalMu()).to.equal(totalMuBefore);
+        expect(await staker.totalVrswAvailable()).to.be.above(totalVrswBefore);
     });
 });
 
@@ -739,6 +696,33 @@ describe('vStakerFactory', function () {
         );
     });
 
+    it('cannot deploy stakerFactory with zero addresses', async () => {
+        const stakerFactoryFactory = await ethers.getContractFactory(
+            'VStakerFactory'
+        );
+        await expect(
+            stakerFactoryFactory.deploy(
+                ethers.constants.AddressZero,
+                minter.address,
+                globalMinter.address
+            )
+        ).to.revertedWith('vrswToken zero address');
+        await expect(
+            stakerFactoryFactory.deploy(
+                vrsw.address,
+                ethers.constants.AddressZero,
+                globalMinter.address
+            )
+        ).to.revertedWith('minter zero address');
+        await expect(
+            stakerFactoryFactory.deploy(
+                vrsw.address,
+                minter.address,
+                ethers.constants.AddressZero
+            )
+        ).to.revertedWith('tokenomicsParams zero address');
+    });
+
     it('Only current admin can initiate admin rights transfer', async () => {
         assert((await stakerFactory.admin()) == accounts[0].address);
         await expect(
@@ -775,5 +759,18 @@ describe('vStakerFactory', function () {
         await expect(
             stakerFactory.createPoolStaker(token0.address)
         ).to.revertedWith('staker exists');
+    });
+
+    it('Only admin can create pool staker', async () => {
+        await expect(
+            stakerFactory.connect(accounts[1]).createPoolStaker(token0.address)
+        ).to.revertedWith('OA');
+    });
+
+    it('getAllStakers works', async () => {
+        const stakers = await stakerFactory.getAllStakers();
+        expect(stakers.length).to.be.equal(2);
+        expect(stakers[0]).to.be.equal(await stakerFactory.allStakers(0));
+        expect(stakers[1]).to.be.equal(await stakerFactory.allStakers(1));
     });
 });

@@ -18,17 +18,29 @@ describe('vGlobalMinter 1', function () {
         vrsw = await ethers.getContractAt('Vrsw', await minter.vrsw());
         gVrsw = await ethers.getContractAt('GVrsw', await minter.gVrsw());
 
-        await expect(
-            minter.newVesting(accounts[0].address, '1', '2', '3')
-        ).to.revertedWith('too early');
-        await expect(
-            minter.arbitraryTransfer(accounts[0].address, '1')
-        ).to.revertedWith('too early');
-
         // skip time to emissionStart
         await time.setNextBlockTimestamp(
             ethers.BigNumber.from(await minter.emissionStartTs()).add(60)
         );
+    });
+
+    it('cannot deploy globalMinter with emission timestamp in the past', async () => {
+        const minterFactory = await ethers.getContractFactory('VGlobalMinter');
+        await mine();
+        await expect(
+            minterFactory.deploy(await time.latest(), vrsw.address)
+        ).to.revertedWith('invalid emission start timestamp');
+    });
+
+    it('cannot deploy globalMinter with zero vrsw token', async () => {
+        const minterFactory = await ethers.getContractFactory('VGlobalMinter');
+        await mine();
+        await expect(
+            minterFactory.deploy(
+                (await time.latest()) + 2,
+                ethers.constants.AddressZero
+            )
+        ).to.revertedWith('zero address');
     });
 
     it('addChainMinter can be called only by owner', async () => {
@@ -77,6 +89,12 @@ describe('vGlobalMinter 1', function () {
         ).to.revertedWith('not enough unlocked tokens');
     });
 
+    it('arbitraryTransfer fails when amount is zero', async () => {
+        await expect(
+            minter.arbitraryTransfer(accounts[1].address, 0)
+        ).to.revertedWith('amount must be positive');
+    });
+
     it('arbitraryTransfer fails when called not by owner', async () => {
         const amount = (await minter.unlockedBalance()).add(
             ethers.utils.parseEther('10')
@@ -118,12 +136,19 @@ describe('vGlobalMinter 1', function () {
         ).to.revertedWith('not enough unlocked tokens');
     });
 
+    it('newVesting fails when amount is zero', async () => {
+        await expect(
+            minter.newVesting(accounts[0].address, await time.latest(), 100, 0)
+        ).to.revertedWith('amount must be positive');
+    });
+
     it('newVesting works', async () => {
         const amount = ethers.utils.parseEther('10');
         const minterBalanceBefore = await vrsw.balanceOf(minter.address);
         await mine();
-        const start = await time.latest() + 1;
+        const start = (await time.latest()) + 1;
         await minter.newVesting(accounts[1].address, start, 1, amount);
+        await minter.newVesting(accounts[2].address, start + 10, 1, amount);
         await mine();
         const minterBalanceAfter = await vrsw.balanceOf(minter.address);
         const vestingWalletAddress = await minter.vestingWallets(0);
@@ -132,7 +157,12 @@ describe('vGlobalMinter 1', function () {
         );
         const vestingWallet =
             vVestingWalletFactory.attach(vestingWalletAddress);
-        expect(minterBalanceAfter).to.equal(minterBalanceBefore.sub(amount));
+        const vestingWallets = await minter.getAllVestingWallets();
+        expect(vestingWallets[0]).to.be.equal(vestingWalletAddress);
+        expect(vestingWallets[1]).to.be.equal(await minter.vestingWallets(1));
+        expect(minterBalanceAfter).to.equal(
+            minterBalanceBefore.sub(amount.mul(2))
+        );
         expect(await vestingWallet.beneficiary()).to.equal(accounts[1].address);
         expect(await vestingWallet.start()).to.equal(start);
         expect(await vestingWallet.duration()).to.equal('1');
@@ -218,10 +248,9 @@ describe('vGlobalMinter 2', function () {
 
         // epoch #1
         await time.setNextBlockTimestamp(
-            ethers.BigNumber.from(
-                await minter.emissionStartTs()
-            ).add(await minter.epochDuration()
-            ).sub(await minter.epochPreparationTime())
+            ethers.BigNumber.from(await minter.emissionStartTs())
+                .add(await minter.epochDuration())
+                .sub(await minter.epochPreparationTime())
         );
         await minter.nextEpochTransfer();
         const balanceAfter2 = await vrsw.balanceOf(accounts[0].address);

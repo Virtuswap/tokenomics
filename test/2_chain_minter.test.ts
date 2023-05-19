@@ -45,6 +45,95 @@ describe('vChainMinter 1', function () {
         );
     });
 
+    it('triggerEpochTransition works', async () => {
+        await time.setNextBlockTimestamp(
+            ethers.BigNumber.from(await globalMinter.emissionStartTs()).sub(
+                1000
+            )
+        );
+        await minter.prepareForNextEpoch(100);
+        await time.setNextBlockTimestamp(
+            ethers.BigNumber.from(await globalMinter.emissionStartTs())
+        );
+        const epochStartTimeBefore = await minter.startEpochTime();
+        await minter.triggerEpochTransition();
+        const epochStartTimeAfter = await minter.startEpochTime();
+        expect(epochStartTimeAfter).to.be.above(epochStartTimeBefore);
+        expect(await minter.currentEpochBalance()).to.be.above(0);
+    });
+
+    it('triggerEpochTransition through multiple epochs works', async () => {
+        await time.setNextBlockTimestamp(
+            ethers.BigNumber.from(await globalMinter.emissionStartTs()).sub(
+                1000
+            )
+        );
+        await minter.prepareForNextEpoch(100);
+        await time.setNextBlockTimestamp(
+            ethers.BigNumber.from(await globalMinter.emissionStartTs())
+        );
+        await minter.triggerEpochTransition();
+        await time.setNextBlockTimestamp(
+            ethers.BigNumber.from(await time.latest())
+                .add(await globalMinter.epochDuration())
+                .sub(await globalMinter.epochPreparationTime())
+        );
+        await minter.prepareForNextEpoch(100);
+        await time.setNextBlockTimestamp(
+            ethers.BigNumber.from(await globalMinter.emissionStartTs())
+                .add(ethers.BigNumber.from(await minter.epochDuration()))
+                .mul(10)
+        );
+        const epochStartTimeBefore = await minter.startEpochTime();
+        const epochBalanceBefore = await minter.startEpochSupply();
+        await minter.triggerEpochTransition();
+        const epochStartTimeAfter = await minter.startEpochTime();
+        const epochBalanceAfter = await minter.startEpochSupply();
+        expect(epochStartTimeAfter).to.be.above(epochStartTimeBefore);
+        expect(epochBalanceAfter).to.be.above(epochBalanceBefore);
+        expect(await minter.currentEpochBalance()).to.be.equal(0);
+        expect(await minter.nextEpochBalance()).to.be.equal(0);
+    });
+
+    it("triggerEpochTransition fails when it's too early", async () => {
+        await time.setNextBlockTimestamp(
+            ethers.BigNumber.from(await globalMinter.emissionStartTs()).sub(
+                1000
+            )
+        );
+        await expect(minter.triggerEpochTransition()).to.revertedWith(
+            'Too early'
+        );
+    });
+
+    it('cannot deploy chainMinter with zero addresses', async () => {
+        const minterFactory = await ethers.getContractFactory('VChainMinter');
+        await expect(
+            minterFactory.deploy(
+                await time.latest(),
+                ethers.constants.AddressZero,
+                vrsw.address,
+                vrsw.address
+            )
+        ).to.revertedWith('tokenomicsParams zero address');
+        await expect(
+            minterFactory.deploy(
+                await time.latest(),
+                vrsw.address,
+                ethers.constants.AddressZero,
+                vrsw.address
+            )
+        ).to.revertedWith('vrsw zero address');
+        await expect(
+            minterFactory.deploy(
+                await time.latest(),
+                vrsw.address,
+                vrsw.address,
+                ethers.constants.AddressZero
+            )
+        ).to.revertedWith('gVrsw zero address');
+    });
+
     it('mintGVrsw fails when called with zero amount', async () => {
         await expect(
             minter.mintGVrsw(accounts[1].address, '0')
@@ -65,12 +154,6 @@ describe('vChainMinter 1', function () {
         await expect(minter.burnGVrsw(accounts[1].address, '1')).to.reverted;
     });
 
-    it('transferRewards fails when called with zero amount', async () => {
-        await expect(
-            minter.transferRewards(accounts[1].address, '0')
-        ).to.revertedWith('zero amount');
-    });
-
     it('transferRewards fails when called not by staker', async () => {
         await expect(minter.transferRewards(accounts[1].address, '1')).to
             .reverted;
@@ -86,6 +169,19 @@ describe('vChainMinter 1', function () {
         await expect(
             minter.connect(accounts[1]).setStakerFactory(accounts[1].address)
         ).to.revertedWith('Ownable: caller is not the owner');
+    });
+
+    it('setStakerFactory fails when new staker address is zero', async () => {
+        await expect(
+            minter.setStakerFactory(ethers.constants.AddressZero)
+        ).to.revertedWith('zero address');
+    });
+
+    it('setStakerFactory fails when trying to set stakerfactory second time', async () => {
+        // already set in deploy script
+        await expect(
+            minter.setStakerFactory(accounts[1].address)
+        ).to.revertedWith('staker factory can be set once');
     });
 
     it('setEpochParams fails when is called not by owner', async () => {
@@ -117,13 +213,23 @@ describe('vChainMinter 1', function () {
 
     it('prepareForNextEpoch works', async () => {
         await time.setNextBlockTimestamp(
-            ethers.BigNumber.from(await globalMinter.emissionStartTs()).sub(1000)
+            ethers.BigNumber.from(await globalMinter.emissionStartTs()).sub(
+                1000
+            )
         );
         // epoch #0
         const balanceBefore = await vrsw.balanceOf(accounts[0].address);
         await minter.prepareForNextEpoch(balanceBefore.div(2));
         const balanceAfter = await vrsw.balanceOf(accounts[0].address);
         expect(balanceAfter).to.be.below(balanceBefore);
+
+        await minter.prepareForNextEpoch(balanceBefore.div(4));
+        const balanceAfter2 = await vrsw.balanceOf(accounts[0].address);
+        expect(balanceAfter2).to.be.above(balanceAfter);
+
+        await minter.prepareForNextEpoch(balanceBefore.div(4));
+        const balanceAfter3 = await vrsw.balanceOf(accounts[0].address);
+        expect(balanceAfter3).to.be.equal(balanceAfter2);
 
         await time.setNextBlockTimestamp(
             ethers.BigNumber.from(await globalMinter.emissionStartTs())
@@ -133,15 +239,30 @@ describe('vChainMinter 1', function () {
 
         // epoch #1
         await time.setNextBlockTimestamp(
-            (
-                await minter.emissionStartTs()
-            ).add(await minter.epochDuration()
-            ).sub(await minter.epochPreparationTime())
+            (await minter.emissionStartTs())
+                .add(await minter.epochDuration())
+                .sub(await minter.epochPreparationTime())
         );
 
-        await minter.prepareForNextEpoch(balanceAfter);
-        const balanceAfter2 = await vrsw.balanceOf(accounts[0].address);
-        expect(balanceAfter2).to.be.below(balanceAfter);
+        await vrsw.approve(minter.address, ethers.utils.parseEther('10000000'));
+
+        await minter.prepareForNextEpoch(balanceAfter3);
+        const balanceAfter4 = await vrsw.balanceOf(accounts[0].address);
+        expect(balanceAfter4).to.be.below(balanceAfter3);
+    });
+
+    it("prepareForNextEpoch fails if it's not time for that", async () => {
+        await expect(minter.prepareForNextEpoch('1')).to.revertedWith(
+            'Too early'
+        );
+        await time.setNextBlockTimestamp(
+            ethers.BigNumber.from(await globalMinter.emissionStartTs())
+                .add(await globalMinter.epochDuration())
+                .sub((await globalMinter.epochPreparationTime()) + 1)
+        );
+        await expect(minter.prepareForNextEpoch('1')).to.revertedWith(
+            'Too early'
+        );
     });
 });
 
@@ -214,15 +335,12 @@ describe('vChainMinter: allocation points', function () {
         const stake3 = await minter.stakers(staker3.address);
         expect(stake1.totalAllocated).to.be.equal('0');
         expect(stake1.totalTransferred).to.be.equal('0');
-        expect(stake1.totalCompoundRate).to.be.equal('0');
         expect(stake1.lastUpdated).to.be.above('0');
         expect(stake2.totalAllocated).to.be.equal('0');
         expect(stake2.totalTransferred).to.be.equal('0');
-        expect(stake2.totalCompoundRate).to.be.equal('0');
         expect(stake2.lastUpdated).to.be.above('0');
         expect(stake3.totalAllocated).to.be.equal('0');
         expect(stake3.totalTransferred).to.be.equal('0');
-        expect(stake3.totalCompoundRate).to.be.equal('0');
         expect(stake3.lastUpdated).to.be.equal('0');
         const allocationPoints1 = await minter.allocationPoints(
             staker1.address
@@ -249,15 +367,12 @@ describe('vChainMinter: allocation points', function () {
         const stake3 = await minter.stakers(staker3.address);
         expect(stake1.totalAllocated).to.be.above('0');
         expect(stake1.totalTransferred).to.be.equal('0');
-        expect(stake1.totalCompoundRate).to.be.above('0');
         expect(stake1.lastUpdated).to.be.above('0');
         expect(stake2.totalAllocated).to.be.above('0');
         expect(stake2.totalTransferred).to.be.equal('0');
-        expect(stake2.totalCompoundRate).to.be.above('0');
         expect(stake2.lastUpdated).to.be.above('0');
         expect(stake3.totalAllocated).to.be.equal('0');
         expect(stake3.totalTransferred).to.be.equal('0');
-        expect(stake3.totalCompoundRate).to.be.equal('0');
         expect(stake3.lastUpdated).to.be.above('0');
         const allocationPoints1 = await minter.allocationPoints(
             staker1.address
@@ -282,6 +397,15 @@ describe('vChainMinter: allocation points', function () {
                     ['0', '0', '100']
                 )
         ).to.revertedWith('Ownable: caller is not the owner');
+    });
+
+    it('setAllocationPoints fails when input lengths are differ', async () => {
+        await expect(
+            minter.setAllocationPoints(
+                [staker1.address, staker2.address, staker3.address],
+                ['0', '100']
+            )
+        ).to.revertedWith('lengths differ');
     });
 
     it('setAllocationPoints fails when sum is more than 100%', async () => {
