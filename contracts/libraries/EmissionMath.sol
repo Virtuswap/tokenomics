@@ -6,9 +6,8 @@ import {SD59x18, sd, unwrap, exp, UNIT} from "@prb/math/src/SD59x18.sol";
 
 /**
  * @title EmissionMath
- * @notice A library for calculating emission rates for Virtuswap Tokenomics
- * @dev This library provides functions for calculating the algorithmic emission, project emission, and compound rate based on time elapsed.
- * You can learn more in Virtuswap Tokenomics Whitepaper
+ * @notice A library for calculating emission rates for Virtuswap Tokenomics.
+ *         You can learn more in Virtuswap Tokenomics Whitepaper
  */
 library EmissionMath {
     SD59x18 public constant V = SD59x18.wrap(3.4723183693e18);
@@ -43,7 +42,7 @@ library EmissionMath {
     }
 
     /**
-     * @dev Calculates the emission amount based on the elapsed time and the compound rate.
+     * @dev Calculates the emission amount based on the elapsed time.
      * @param _t Elapsed time since the start of the emission period, in seconds.
      * @return amount The emission amount, expressed as a 128-bit unsigned integer.
      */

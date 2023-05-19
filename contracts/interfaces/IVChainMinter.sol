@@ -3,8 +3,9 @@
 pragma solidity 0.8.18;
 
 /**
-@title Interface for vChainMinter contract, which handles VRSW and gVRSW tokens distribution.
-*/
+ * @title Interface for vChainMinter contract, which handles VRSW and gVRSW tokens distribution
+ * among stakers.
+ */
 interface IVChainMinter {
     /**
      * @notice Emitted when a new staker factory is set.
@@ -34,7 +35,7 @@ interface IVChainMinter {
     ) external;
 
     /**
-     * @notice Accepts transfer of necessary amount of VRSW tokens for the
+     * @notice Accepts necessary amount of VRSW tokens for the
      * next mining epoch according to the schedule defined in EmissionMath library.
      * Currently the transfers are done manually using intermediary wallet (contracts owner).
      * @param nextBalance Amount of VRSW tokens for the next epoch.
@@ -67,6 +68,7 @@ interface IVChainMinter {
     /**
      * @notice Sets the address of the staker factory contract.
      * @dev Can be called only by owner.
+     * @notice The staker factory can be set only once
      * @param _newStakerFactory The address of the new staker factory contract.
      */
     function setStakerFactory(address _newStakerFactory) external;
@@ -83,7 +85,6 @@ interface IVChainMinter {
      * This function allows a registered staker to transfer a specified amount of
      * rewards tokens to a recipient address. The caller must be a registered staker,
      * and the current timestamp must be later than the contract's emission start time.
-     * The staker must have enough untransferred rewards tokens to transfer.
      *
      * @param to The address of the recipient to transfer tokens to.
      * @param amount The amount of tokens to transfer.
@@ -91,8 +92,6 @@ interface IVChainMinter {
      * Requirements:
      * - The current timestamp must be later than the contract's emission start time.
      * - The amount to transfer must be greater than zero.
-     * - The caller must be a registered staker with a non-zero allocation point.
-     * - The staker must have enough untransferred rewards tokens to transfer.
      */
     function transferRewards(address to, uint256 amount) external;
 
@@ -116,6 +115,9 @@ interface IVChainMinter {
      */
     function burnGVrsw(address from, uint256 amount) external;
 
+    /**
+     * @notice Triggers next epoch transition
+     */
     function triggerEpochTransition() external;
 
     /**

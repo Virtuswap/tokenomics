@@ -45,6 +45,10 @@ interface IVStakerFactory {
      */
     function getPoolStaker(address lpToken) external view returns (address);
 
+    /**
+     * @dev Function to get all stakers created so far
+     * @return The array of addresses of all the staker contracts
+     */
     function getAllStakers() external view returns (address[] memory);
 
     /**

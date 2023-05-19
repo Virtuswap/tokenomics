@@ -102,6 +102,7 @@ contract VStakerFactory is IVStakerFactory {
         return stakers[_lpToken];
     }
 
+    /// @inheritdoc IVStakerFactory
     function getAllStakers() external view override returns (address[] memory) {
         return allStakers;
     }

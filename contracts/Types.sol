@@ -9,7 +9,7 @@ struct Stake {
     uint128 startTs;
     // lock duration of the current posisiton (0 if position is not locked)
     uint128 lockDuration;
-    // discount factor for the current position equals exp(lockDuration * r)
+    // discount factor for the current position equals exp(-r * stakeTime)
     // used in formula (3) in Virtuswap Tokenomics Whitepaper
     SD59x18 discountFactor;
     // amount of tokens staked for current position

@@ -3,8 +3,8 @@
 pragma solidity 0.8.18;
 
 /**
-@title Interface for vGlobalMinter contract, which handles VRSW and gVRSW tokens distribution.
-*/
+ * @title Interface for vGlobalMinter contract, which handles VRSW and gVRSW tokens distribution.
+ */
 interface IVGlobalMinter {
     /**
      * @notice Emitted when a new vVestingWallet contract is created.
@@ -20,6 +20,10 @@ interface IVGlobalMinter {
         uint32 duration
     );
 
+    /**
+     * @dev Function to get all vesting wallets created so far
+     * @return The array of addresses of all the vesting wallets contracts
+     */
     function getAllVestingWallets() external view returns (address[] memory);
 
     /**

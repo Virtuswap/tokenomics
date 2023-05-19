@@ -17,7 +17,6 @@ import "./interfaces/IVTokenomicsParams.sol";
 contract VChainMinter is IVChainMinter, Ownable {
     struct StakerInfo {
         uint128 totalAllocated; // Total amount of VRSW tokens allocated to the staker
-        uint128 totalTransferred; // Total amount of VRSW tokens already transferred to the staker
         uint128 lastUpdated; // Timestamp of the last update to the staker info
         uint256 lastAvailable; // The snapshot of the availableTokens
     }
@@ -37,23 +36,23 @@ contract VChainMinter is IVChainMinter, Ownable {
     // amount of VRSW tokens for the next epoch to distribute
     uint32 public epochPreparationTime;
 
-    // the next epoch duration
+    // the next epoch duration (in seconds)
     // if the value is zero then the next epoch duration is the same as the current
     // epoch duration
     uint32 public nextEpochDuration;
 
-    // the next epoch preparation time
+    // the next epoch preparation time (in seconds)
     // if the value is zero then the next epoch preparation time is the same as
     // the current epoch preparation time
     uint32 public nextEpochPreparationTime;
 
-    // the timestamp of the current epoch start
+    // the timestamp of the current epoch start (in seconds)
     uint32 public startEpochTime;
 
     // balance of VRSW tokens when the current epoch started
     uint256 public startEpochSupply;
 
-    // total allocation points currently (must be always less than ALLOCATION_POINTS_FACTOR)
+    // total allocation points currently (must be always less than or equal to ALLOCATION_POINTS_FACTOR)
     uint256 public totalAllocationPoints;
 
     // stakers info
@@ -218,7 +217,6 @@ contract VChainMinter is IVChainMinter, Ownable {
             _availableTokens()
         );
 
-        stakerInfo.totalTransferred += uint128(amount);
         stakers[msg.sender] = stakerInfo;
         SafeERC20.safeTransfer(IERC20(vrsw), to, amount);
         emit TransferRewards(to, amount);
@@ -248,6 +246,7 @@ contract VChainMinter is IVChainMinter, Ownable {
         SafeERC20.safeTransferFrom(IERC20(gVrsw), from, address(this), amount);
     }
 
+    /// @inheritdoc IVChainMinter
     function triggerEpochTransition() external override {
         require(block.timestamp >= startEpochTime + epochDuration, "Too early");
         _epochTransition();
@@ -270,6 +269,10 @@ contract VChainMinter is IVChainMinter, Ownable {
         return stakerInfo.totalAllocated;
     }
 
+    /**
+     * @dev Transfers through multiple epochs right to the epoch, which
+     * start is before block.timestamp
+     */
     function _epochTransition() private {
         startEpochTime += epochDuration;
         startEpochSupply += currentEpochBalance;
@@ -298,7 +301,7 @@ contract VChainMinter is IVChainMinter, Ownable {
     /**
      * @dev Updates the specified staker's allocation information based on the current state of the emission.
      * @param stakerInfo The current allocation information for the staker.
-     * @param _allocationPoints The allocation points for the staker's staking contract.
+     * @param _allocationPoints The allocation points for the staker's contract.
      */
     function _updateStakerInfo(
         StakerInfo memory stakerInfo,
@@ -321,6 +324,10 @@ contract VChainMinter is IVChainMinter, Ownable {
         );
     }
 
+    /**
+     * @dev Calculates number of VRSW tokens currently available for algorithmic
+     * distribution.
+     */
     function _availableTokens() private view returns (uint256) {
         return
             startEpochSupply +
@@ -329,6 +336,10 @@ contract VChainMinter is IVChainMinter, Ownable {
             epochDuration;
     }
 
+    /**
+     * @dev Calculates number of VRSW tokens that are available for algorithmic
+     * distribution in case when now is epoch N and block.timestamp is in epoch N + 1.
+     */
     function _availableTokensForNextEpoch() private view returns (uint256) {
         uint32 _nextEpochDuration = (
             nextEpochDuration > 0 ? nextEpochDuration : epochDuration

@@ -11,7 +11,9 @@ import "./interfaces/IVChainMinter.sol";
 import "./interfaces/IVTokenomicsParams.sol";
 
 contract VStaker is IVStaker {
+    // approximately 3 years limit
     uint256 public constant LOCK_DURATION_LIMIT = 3 * 12 * 4 weeks;
+    // 1 staking positions for unlocked VRSW + 20 for locked VRSW
     uint256 public constant STAKE_POSITIONS_LIMIT = 21;
 
     /**
@@ -25,8 +27,14 @@ contract VStaker is IVStaker {
      */
     mapping(address => SD59x18) public mu;
 
+    /**
+     * @dev Accrued rewards currently available for user to withdraw.
+     */
     mapping(address => SD59x18) public rewards;
 
+    /**
+     * @dev The snapshot of rewardsCoefficintGlobal at the time of the last update.
+     */
     mapping(address => SD59x18) public rewardsCoefficient;
 
     /**
@@ -39,6 +47,11 @@ contract VStaker is IVStaker {
      */
     SD59x18 public totalMu;
 
+    /**
+     * @dev Coefficient needed to calculate accrued rewards. It's equal to:
+     * SUM(vrswEmission(t_{i - 1}, t_{i}) / totalMu(t_i)), where t_i is the
+     * timestamp when totalMu has changed.
+     */
     SD59x18 public rewardsCoefficientGlobal;
 
     /**
@@ -358,6 +371,14 @@ contract VStaker is IVStaker {
 
         Stake memory oldStake = senderStakes[0];
 
+        // discount factor here is calculated considering old discount factor such that
+        // it satisfies equation: (a1 + a2) * f2 = (a1 * exp(-rt1) + a2 * exp(-rt2))
+        // where a1 - the amount that was already staked,
+        //       a2 - the amount that is staking,
+        //       f1 - old discount factor,
+        //       f2 - new discount factor,
+        //       r  - tokenomics param,
+        //       t1, t2 - the timestamps of old stake and new stake respectively
         senderStakes[0] = Stake(
             uint128(block.timestamp),
             0,
@@ -445,8 +466,6 @@ contract VStaker is IVStaker {
     /**
      * @dev Calculates the state of the staker before the update
      * @param who The staker address
-     * Returns the total available VRSW tokens, the reward points of the staker, the total reward points,
-     *         the compound rate of the staker, and the global compound rate
      */
     function _calculateStateBefore(
         address who
@@ -475,6 +494,7 @@ contract VStaker is IVStaker {
                 (_totalVrswAvailable.sub(totalVrswAvailable)).div(totalMu)
             );
         _senderRewardsCoefficient = _rewardsCoefficientGlobal;
+        // you can learn more about the formula in Virtuswap Tokenomics Whitepaper
         _senderRewards = rewards[who].add(
             mu[who].mul(_rewardsCoefficientGlobal.sub(rewardsCoefficient[who]))
         );

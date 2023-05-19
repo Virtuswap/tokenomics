@@ -44,6 +44,7 @@ contract VGlobalMinter is IVGlobalMinter, Ownable {
     // timestamp of VRSW emission start
     uint32 public immutable emissionStartTs;
 
+    // amount of VRSW tokens locked for algorithmic emission
     uint256 public lockedBalance;
 
     // VRSW token
@@ -53,8 +54,10 @@ contract VGlobalMinter is IVGlobalMinter, Ownable {
     GVrsw public immutable gVrsw;
 
     /**
-     * @dev Constructor function
+     * @dev Constructor function. All VRSW tokens must be transferred here right
+     * after contract creation.
      * @param _emissionStartTs Timestamp of the start of emission
+     * @param _vrsw Address of VRSW token
      */
     constructor(uint32 _emissionStartTs, address _vrsw) {
         require(
@@ -144,6 +147,7 @@ contract VGlobalMinter is IVGlobalMinter, Ownable {
         );
     }
 
+    /// @inheritdoc IVGlobalMinter
     function getAllVestingWallets()
         external
         view
@@ -153,10 +157,18 @@ contract VGlobalMinter is IVGlobalMinter, Ownable {
         return vestingWallets;
     }
 
+    /**
+     * @dev Calculates the number of unlocked VRSW tokens.
+     * @return Amount of unlocked VRSW tokens.
+     */
     function unlockedBalance() public view returns (uint256) {
         return vrsw.balanceOf(address(this)) - lockedBalance;
     }
 
+    /**
+     * @dev Transfers through multiple epochs right to the epoch, which
+     * start is after block.timestamp
+     */
     function _epochTransition() private {
         uint256 _startEpochTime = startEpochTime + epochDuration;
         if (nextEpochDuration > 0) {
