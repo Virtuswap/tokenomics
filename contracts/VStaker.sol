@@ -17,25 +17,14 @@ contract VStaker is IVStaker {
     mapping(address => SD59x18) public lpStake;
 
     /**
-     * @dev The compound rate of each user.
-     */
-    mapping(address => SD59x18) public compoundRate;
-
-    /**
      * @dev The mu value of each user's stake. You can learn more about mu and
      * staking formula in Virtuswap Tokenomics Whitepaper.
      */
     mapping(address => SD59x18) public mu;
 
-    /**
-     * @dev The reward points earned by each user.
-     */
-    mapping(address => SD59x18) public rewardPoints;
+    mapping(address => SD59x18) public rewards;
 
-    /**
-     * @dev The amount of rewards claimed by each user.
-     */
-    mapping(address => SD59x18) public rewardsClaimed;
+    mapping(address => SD59x18) public rewardsCoefficient;
 
     /**
      * @dev The VRSW stakes of each user.
@@ -47,15 +36,7 @@ contract VStaker is IVStaker {
      */
     SD59x18 public totalMu;
 
-    /**
-     * @dev Sum of all user's reward points.
-     */
-    SD59x18 public totalRewardPoints;
-
-    /**
-     * @dev The compound rate for the whole staker.
-     */
-    SD59x18 public compoundRateGlobal;
+    SD59x18 public rewardsCoefficientGlobal;
 
     /**
      * @dev The total amount of VRSW tokens available for distribution as rewards.
@@ -155,10 +136,7 @@ contract VStaker is IVStaker {
     function claimRewards() external override notBefore(emissionStartTs) {
         _updateStateBefore(msg.sender);
         uint256 amountToClaim = _calculateAccruedRewards(msg.sender, true);
-        rewardsClaimed[msg.sender] = rewardsClaimed[msg.sender].add(
-            sd(int256(amountToClaim))
-        );
-        _updateStateAfter(msg.sender);
+        rewards[msg.sender] = ZERO;
 
         if (amountToClaim > 0) {
             IVChainMinter(minter).transferRewards(msg.sender, amountToClaim);
@@ -317,10 +295,8 @@ contract VStaker is IVStaker {
     }
 
     /// @inheritdoc IVStaker
-    function viewRewards(
-        address who
-    ) external view override returns (uint256 rewards) {
-        rewards = _calculateAccruedRewards(who, false);
+    function viewRewards(address who) external view override returns (uint256) {
+        return _calculateAccruedRewards(who, false);
     }
 
     /// @inheritdoc IVStaker
@@ -398,10 +374,9 @@ contract VStaker is IVStaker {
     function _updateStateBefore(address who) private {
         (
             totalVrswAvailable,
-            rewardPoints[who],
-            totalRewardPoints,
-            compoundRate[who],
-            compoundRateGlobal
+            rewardsCoefficient[who],
+            rewardsCoefficientGlobal,
+            rewards[who]
         ) = _calculateStateBefore(who);
     }
 
@@ -447,32 +422,10 @@ contract VStaker is IVStaker {
         address who,
         bool isStateChanged
     ) private view returns (uint256) {
-        (
-            SD59x18 _totalVrswAvailable,
-            SD59x18 _senderRewardPoints,
-            SD59x18 _totalRewardPoints,
-            ,
-
-        ) = isStateChanged
-                ? (
-                    totalVrswAvailable,
-                    rewardPoints[who],
-                    totalRewardPoints,
-                    compoundRate[who],
-                    compoundRateGlobal
-                )
-                : _calculateStateBefore(who);
-        return
-            unwrap(_totalRewardPoints) == 0
-                ? 0
-                : uint256(
-                    unwrap(
-                        _senderRewardPoints
-                            .mul(_totalVrswAvailable)
-                            .div(_totalRewardPoints)
-                            .sub(rewardsClaimed[who])
-                    )
-                );
+        (, , , SD59x18 _senderRewards) = isStateChanged
+            ? (ZERO, ZERO, ZERO, rewards[who])
+            : _calculateStateBefore(who);
+        return uint256(unwrap(_senderRewards));
     }
 
     /**
@@ -488,10 +441,9 @@ contract VStaker is IVStaker {
         view
         returns (
             SD59x18 _totalVrswAvailable,
-            SD59x18 _senderRewardPoints,
-            SD59x18 _totalRewardPoints,
-            SD59x18 _senderCompoundRate,
-            SD59x18 _compoundRateGlobal
+            SD59x18 _senderRewardsCoefficient,
+            SD59x18 _rewardsCoefficientGlobal,
+            SD59x18 _senderRewards
         )
     {
         _totalVrswAvailable = sd(
@@ -503,25 +455,14 @@ contract VStaker is IVStaker {
                 )
             )
         );
-        _compoundRateGlobal = sd(
-            int256(
-                uint256(
-                    IVChainMinter(minter).calculateCompoundRateForStaker(
-                        address(this)
-                    )
-                )
-            )
+        _rewardsCoefficientGlobal = unwrap(totalMu) == 0
+            ? ZERO
+            : rewardsCoefficientGlobal.add(
+                (_totalVrswAvailable.sub(totalVrswAvailable)).div(totalMu)
+            );
+        _senderRewardsCoefficient = _rewardsCoefficientGlobal;
+        _senderRewards = rewards[who].add(
+            mu[who].mul(_rewardsCoefficientGlobal.sub(rewardsCoefficient[who]))
         );
-        SD59x18 deltaCompoundRate = _compoundRateGlobal.sub(compoundRate[who]);
-        SD59x18 deltaCompoundRateGlobal = _compoundRateGlobal.sub(
-            compoundRateGlobal
-        );
-        _senderRewardPoints = rewardPoints[who].add(
-            mu[who].mul(deltaCompoundRate)
-        );
-        _totalRewardPoints = totalRewardPoints.add(
-            totalMu.mul(deltaCompoundRateGlobal)
-        );
-        _senderCompoundRate = compoundRate[who].add(deltaCompoundRate);
     }
 }

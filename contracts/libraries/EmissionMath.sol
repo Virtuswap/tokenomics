@@ -2,7 +2,7 @@
 
 pragma solidity 0.8.18;
 
-import {SD59x18, sd, unwrap, exp, UNIT, ZERO} from "@prb/math/src/SD59x18.sol";
+import {SD59x18, sd, unwrap, exp, UNIT} from "@prb/math/src/SD59x18.sol";
 
 /**
  * @title EmissionMath
@@ -32,40 +32,12 @@ library EmissionMath {
                 : (
                     _t1 >= TEN_YEARS
                         ? TOTAL_ALGO_EMISSION
-                        : _calculateEmission(_t1, ZERO)
+                        : _calculateEmission(_t1)
                 ) -
                     (
                         _t0 >= TEN_YEARS
                             ? TOTAL_ALGO_EMISSION
-                            : _calculateEmission(_t0, ZERO)
-                    )
-        );
-    }
-
-    /**
-     * @notice Calculates the compound rate between two timestamps
-     * @param _t0 The timestamp of the start of the period
-     * @param _t1 The timestamp of the end of the period
-     * @param _r The compound rate
-     * @return amount The amount of compound rate for the period
-     */
-    function calculateCompoundRate(
-        uint256 _t0,
-        uint256 _t1,
-        SD59x18 _r
-    ) internal pure returns (uint128 amount) {
-        amount = (
-            _t0 >= _t1
-                ? 0
-                : (
-                    _t1 >= TEN_YEARS
-                        ? _calculateEmission(TEN_YEARS, _r)
-                        : _calculateEmission(_t1, _r)
-                ) -
-                    (
-                        _t0 >= TEN_YEARS
-                            ? _calculateEmission(TEN_YEARS, _r)
-                            : _calculateEmission(_t0, _r)
+                            : _calculateEmission(_t0)
                     )
         );
     }
@@ -73,21 +45,15 @@ library EmissionMath {
     /**
      * @dev Calculates the emission amount based on the elapsed time and the compound rate.
      * @param _t Elapsed time since the start of the emission period, in seconds.
-     * @param _r Compound rate, expressed as a fixed-point decimal with 18 decimal places.
      * @return amount The emission amount, expressed as a 128-bit unsigned integer.
      */
     function _calculateEmission(
-        uint256 _t,
-        SD59x18 _r
+        uint256 _t
     ) private pure returns (uint128 amount) {
         amount = uint128(
             uint256(
                 unwrap(
-                    V
-                        .mul(
-                            exp(_r.add(v).mul(sd(int256(_t) * 1e18))).sub(UNIT)
-                        )
-                        .div(_r.add(v))
+                    V.mul(exp(v.mul(sd(int256(_t) * 1e18))).sub(UNIT)).div(v)
                 )
             )
         );

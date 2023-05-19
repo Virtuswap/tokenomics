@@ -126,13 +126,4 @@ interface IVChainMinter {
     function calculateTokensForStaker(
         address staker
     ) external view returns (uint256);
-
-    /**
-     * @notice Calculates the compound rate of a staker.
-     * @param staker The address of the staker.
-     * @return The compound rate of the staker.
-     */
-    function calculateCompoundRateForStaker(
-        address staker
-    ) external view returns (uint256);
 }

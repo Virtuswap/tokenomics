@@ -5,7 +5,6 @@ pragma solidity 0.8.18;
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/utils/math/Math.sol";
-import "./libraries/EmissionMath.sol";
 import "./interfaces/IVStakerFactory.sol";
 import "./interfaces/IVStaker.sol";
 import "./interfaces/IVChainMinter.sol";
@@ -19,7 +18,6 @@ contract VChainMinter is IVChainMinter, Ownable {
     struct StakerInfo {
         uint128 totalAllocated; // Total amount of VRSW tokens allocated to the staker
         uint128 totalTransferred; // Total amount of VRSW tokens already transferred to the staker
-        uint128 totalCompoundRate; // Total compound rate of the staker
         uint128 lastUpdated; // Timestamp of the last update to the staker info
         uint256 lastAvailable; // The snapshot of the availableTokens
     }
@@ -272,23 +270,6 @@ contract VChainMinter is IVChainMinter, Ownable {
         return stakerInfo.totalAllocated;
     }
 
-    /// @inheritdoc IVChainMinter
-    function calculateCompoundRateForStaker(
-        address staker
-    ) external view override returns (uint256) {
-        uint256 _tokensAvailable = block.timestamp >=
-            startEpochTime + epochDuration
-            ? _availableTokensForNextEpoch()
-            : _availableTokens();
-        StakerInfo memory stakerInfo = stakers[staker];
-        _updateStakerInfo(
-            stakerInfo,
-            allocationPoints[staker],
-            _tokensAvailable
-        );
-        return stakerInfo.totalCompoundRate;
-    }
-
     function _epochTransition() private {
         startEpochTime += epochDuration;
         startEpochSupply += currentEpochBalance;
@@ -329,13 +310,6 @@ contract VChainMinter is IVChainMinter, Ownable {
             stakerInfo.lastUpdated > 0 &&
             block.timestamp > stakerInfo.lastUpdated
         ) {
-            stakerInfo.totalCompoundRate += uint128(
-                (EmissionMath.calculateCompoundRate(
-                    stakerInfo.lastUpdated - _emissionStartTs,
-                    block.timestamp - _emissionStartTs,
-                    IVTokenomicsParams(tokenomicsParams).r()
-                ) * uint128(_allocationPoints)) / ALLOCATION_POINTS_FACTOR
-            );
             stakerInfo.totalAllocated += uint128(
                 ((_tokensAvailable - stakerInfo.lastAvailable) *
                     uint128(_allocationPoints)) / ALLOCATION_POINTS_FACTOR
