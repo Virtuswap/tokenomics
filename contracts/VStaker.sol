@@ -11,6 +11,9 @@ import "./interfaces/IVChainMinter.sol";
 import "./interfaces/IVTokenomicsParams.sol";
 
 contract VStaker is IVStaker {
+    uint256 public constant LOCK_DURATION_LIMIT = 3 * 12 * 4 weeks;
+    uint256 public constant STAKE_POSITIONS_LIMIT = 20;
+
     /**
      * @dev The amount of LP tokens staked by each user.
      */
@@ -63,9 +66,9 @@ contract VStaker is IVStaker {
         _;
     }
 
-    modifier validlockDuration(uint128 lockDuration) {
+    modifier validLockDuration(uint128 lockDuration) {
         require(
-            lockDuration > 0 && lockDuration <= 4 weeks * 12 * 3,
+            lockDuration > 0 && lockDuration <= LOCK_DURATION_LIMIT,
             "insufficient lock duration"
         );
         _;
@@ -203,6 +206,10 @@ contract VStaker is IVStaker {
         positiveAmount(amount)
     {
         Stake[] storage senderStakes = stakes[msg.sender];
+        require(
+            senderStakes.length <= STAKE_POSITIONS_LIMIT,
+            "stake positions limit is exceeded"
+        );
         if (senderStakes.length == 0) {
             senderStakes.push(Stake(0, 0, ZERO, ZERO));
         }
@@ -234,6 +241,10 @@ contract VStaker is IVStaker {
     {
         Stake[] storage senderStakes = stakes[msg.sender];
         require(senderStakes.length > 0, "no stakes");
+        require(
+            senderStakes.length <= STAKE_POSITIONS_LIMIT,
+            "stake positions limit is exceeded"
+        );
         require(
             amount <= uint256(unwrap(senderStakes[0].amount)),
             "not enough tokens"
