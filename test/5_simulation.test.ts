@@ -13,7 +13,7 @@ import {
 import { time, mine } from '@nomicfoundation/hardhat-network-helpers';
 
 describe('Simulation', function () {
-    const accountsNumber = 2;
+    const accountsNumber = 5;
     let vrsw: Vrsw;
     let gVrsw: GVrsw;
     let token0: Token0;
