@@ -63,8 +63,11 @@ contract VStaker is IVStaker {
         _;
     }
 
-    modifier positiveLockDuration(uint128 lockDuration) {
-        require(lockDuration > 0, "insufficient lock duration");
+    modifier validlockDuration(uint128 lockDuration) {
+        require(
+            lockDuration > 0 && lockDuration <= 4 weeks * 12 * 3,
+            "insufficient lock duration"
+        );
         _;
     }
 
@@ -196,7 +199,7 @@ contract VStaker is IVStaker {
         external
         override
         notBefore(emissionStartTs)
-        positiveLockDuration(lockDuration)
+        validLockDuration(lockDuration)
         positiveAmount(amount)
     {
         Stake[] storage senderStakes = stakes[msg.sender];
@@ -226,7 +229,7 @@ contract VStaker is IVStaker {
         external
         override
         notBefore(emissionStartTs)
-        positiveLockDuration(lockDuration)
+        validLockDuration(lockDuration)
         positiveAmount(amount)
     {
         Stake[] storage senderStakes = stakes[msg.sender];
