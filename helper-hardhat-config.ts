@@ -12,6 +12,7 @@ export const networkConfig: networkConfigInfo = {
   mumbai: {
       blockConfirmations: 5,
   },
+  polygon: {}
 }
 
 export const developmentChains = ['hardhat', 'localhost'];

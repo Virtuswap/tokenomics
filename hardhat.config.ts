@@ -4,7 +4,7 @@ import '@nomiclabs/hardhat-etherscan';
 import 'hardhat-deploy';
 import 'dotenv/config';
 
-const { POLYGON_MUMBAI_RPC_PROVIDER, PRIVATE_KEY, POLYGONSCAN_API_KEY } = process.env;
+const { POLYGON_MUMBAI_RPC_PROVIDER, POLYGON_MUMBAI_PRIVATE_KEY, POLYGONSCAN_API_KEY, POLYGON_PRIVATE_KEY, POLYGON_RPC_PROVIDER } = process.env;
 
 const config: HardhatUserConfig = {
     defaultNetwork: 'hardhat',
@@ -15,12 +15,17 @@ const config: HardhatUserConfig = {
         mumbai: {
             chainId: 80001,
             url: POLYGON_MUMBAI_RPC_PROVIDER !== undefined ? `${POLYGON_MUMBAI_RPC_PROVIDER}` : '',
-            accounts: PRIVATE_KEY !== undefined ? [`${PRIVATE_KEY}`] : [],
+            accounts: POLYGON_MUMBAI_PRIVATE_KEY !== undefined ? [`${POLYGON_MUMBAI_PRIVATE_KEY}`] : [],
+        },
+        polygon: {
+            url: POLYGON_RPC_PROVIDER !== undefined ? `${POLYGON_RPC_PROVIDER}` : '',
+            accounts: POLYGON_PRIVATE_KEY !== undefined ? [`${POLYGON_PRIVATE_KEY}`] : [],
         },
     },
     etherscan: {
         apiKey: {
-            polygonMumbai: POLYGONSCAN_API_KEY,
+            polygonMumbai: POLYGONSCAN_API_KEY !== undefined ? `${POLYGONSCAN_API_KEY}` : '',
+            polygon: POLYGONSCAN_API_KEY !== undefined ? `${POLYGONSCAN_API_KEY}` : '',
         },
     },
     solidity: {
