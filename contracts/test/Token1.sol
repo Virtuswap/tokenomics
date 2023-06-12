@@ -15,4 +15,8 @@ contract Token1 is ERC20 {
     function mint(address _to, uint256 _amount) external {
         _mint(_to, _amount);
     }
+
+    function getTokens() external returns (address token0, address token1) {
+        return (msg.sender, msg.sender);
+    }
 }

@@ -1,5 +1,6 @@
 export interface networkConfigItem {
-    blockConfirmations?: number
+    blockConfirmations?: number,
+    vPairFactoryAddress?: string,
 }
 
 export interface networkConfigInfo {
@@ -10,6 +11,7 @@ export const networkConfig: networkConfigInfo = {
   localhost: {},
   hardhat: {},
   mumbai: {
+      vPairFactoryAddress: '',
       blockConfirmations: 5,
   },
   polygon: {}

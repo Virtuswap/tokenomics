@@ -23,12 +23,15 @@ const deployCore: DeployFunction = async function (
     log('Deploying core contracts...');
 
     let timestamp: number;
+    let vPairFactoryAddress: string;
     if (chainId == 31337) {
         timestamp = (await time.latest()) + 604800; // 1 week after now
+        vPairFactoryAddress = (await deployments.get('MockVPairFactory')).address;
     } else {
         const blockNumBefore = await hre.ethers.provider.getBlockNumber();
         const blockBefore = await hre.ethers.provider.getBlock(blockNumBefore);
         timestamp = blockBefore.timestamp;
+        vPairFactoryAddress = networkConfig[network.name].vPairFactoryAddress || '';
     }
 
     const vrsw = await deploy('vrsw', {
@@ -54,63 +57,48 @@ const deployCore: DeployFunction = async function (
         await vrswContract.balanceOf(deployer)
     );
 
-    const globalMinterContract = await hre.ethers.getContractAt(
-        'VGlobalMinter',
-        globalMinter.address
-    );
-    const gVrswTokenAddress = await globalMinterContract.gVrsw();
-
     const chainMinter = await deploy('chainMinter', {
         from: deployer,
         contract: 'VChainMinter',
         args: [
             timestamp,
             tokenomicsParams.address,
-            vrsw.address,
-            gVrswTokenAddress,
+            vrsw.address
         ],
         log: true,
     });
 
-    const stakerFactory = await deploy('stakerFactory', {
+    const staker = await deploy('staker', {
         from: deployer,
-        contract: 'VStakerFactory',
-        args: [vrsw.address, chainMinter.address, tokenomicsParams.address],
+        contract: 'VStaker',
+        args: [vrsw.address, chainMinter.address, tokenomicsParams.address, vPairFactoryAddress],
         log: true,
         waitConfirmations: networkConfig[network.name].blockConfirmations || 0,
     });
 
-    const stakerFactoryContract = await hre.ethers.getContractAt(
-        'VStakerFactory',
-        stakerFactory.address
-    );
-
-    const chainMinterContract = await hre.ethers.getContractAt(
-        'VChainMinter',
-        chainMinter.address
-    );
+    log('Setting staker for VChainMinter...');
+    const chainMinterContract = await hre.ethers.getContractAt('VChainMinter', chainMinter.address);
+    await chainMinterContract.setStaker(staker.address);
+    log('Done!');
 
     log('Core contracts deployed!');
-    log('Setting stakerFactory for minter...');
-    await chainMinterContract.setStakerFactory(stakerFactory.address);
-    log('Done!');
 
     if (
         !developmentChains.includes(network.name) &&
         config.etherscan.apiKey.polygonMumbai
     ) {
         await verify(tokenomicsParams.address, []);
-        await verify(globalMinter.address, [timestamp]);
+        await verify(globalMinter.address, [timestamp, vrsw.address]);
         await verify(chainMinter.address, [
             timestamp,
             tokenomicsParams.address,
-            vrsw.address,
-            gVrswTokenAddress,
+            vrsw.address
         ]);
-        await verify(stakerFactory.address, [
+        await verify(staker.address, [
             vrsw.address,
             chainMinter.address,
             tokenomicsParams.address,
+            vPairFactoryAddress
         ]);
     }
 };

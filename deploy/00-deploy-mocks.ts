@@ -11,6 +11,12 @@ const deployMocks: DeployFunction = async function (
     const chainId = network.config.chainId;
 
     if (chainId == 31337) {
+        await deploy('MockVPairFactory', {
+            contract: 'MockVPairFactory',
+            from: deployer,
+            log: true,
+            args: [],
+        });
         await deploy('Token0', {
             contract: 'Token0',
             from: deployer,
