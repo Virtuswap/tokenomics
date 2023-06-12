@@ -5,10 +5,10 @@ pragma solidity 0.8.18;
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/utils/math/Math.sol";
-import "./interfaces/IVStakerFactory.sol";
 import "./interfaces/IVStaker.sol";
 import "./interfaces/IVChainMinter.sol";
 import "./interfaces/IVTokenomicsParams.sol";
+import "./VeVrsw.sol";
 
 /**
  * @title vChainMinter
@@ -61,8 +61,7 @@ contract VChainMinter is IVChainMinter, Ownable {
     // allocation points of stakers
     mapping(address => uint256) public allocationPoints;
 
-    // staker factory address
-    address public stakerFactory;
+    address public staker;
 
     // timestamp of VRSW emission start
     uint256 public immutable emissionStartTs;
@@ -73,35 +72,32 @@ contract VChainMinter is IVChainMinter, Ownable {
     // VRSW token address
     address public immutable vrsw;
 
-    // gVRSW token address
-    address public immutable gVrsw;
+    // veVRSW token address
+    VeVrsw public immutable veVrsw;
 
     /**
      * @dev Constructor function
      * @param _emissionStartTs Timestamp of the start of emission
      * @param _tokenomicsParams Address of the tokenomics parameters contract
      * @param _vrsw Address of the VRSW token
-     * @param _gVrsw Address of the gVRSW token
      */
     constructor(
         uint32 _emissionStartTs,
         address _tokenomicsParams,
-        address _vrsw,
-        address _gVrsw
+        address _vrsw
     ) {
         require(
             _tokenomicsParams != address(0),
             "tokenomicsParams zero address"
         );
         require(_vrsw != address(0), "vrsw zero address");
-        require(_gVrsw != address(0), "gVrsw zero address");
         tokenomicsParams = _tokenomicsParams;
         emissionStartTs = _emissionStartTs;
         epochDuration = 4 weeks;
         epochPreparationTime = 1 weeks;
         startEpochTime = _emissionStartTs - epochDuration;
         vrsw = _vrsw;
-        gVrsw = _gVrsw;
+        veVrsw = new VeVrsw(address(this));
     }
 
     /// @inheritdoc IVChainMinter
@@ -129,16 +125,6 @@ contract VChainMinter is IVChainMinter, Ownable {
     }
 
     /// @inheritdoc IVChainMinter
-    function setStakerFactory(
-        address _newStakerFactory
-    ) external override onlyOwner {
-        require(_newStakerFactory != address(0), "zero address");
-        require(stakerFactory == address(0), "staker factory can be set once");
-        stakerFactory = _newStakerFactory;
-        emit NewStakerFactory(_newStakerFactory);
-    }
-
-    /// @inheritdoc IVChainMinter
     function setEpochParams(
         uint32 _epochDuration,
         uint32 _epochPreparationTime
@@ -159,37 +145,35 @@ contract VChainMinter is IVChainMinter, Ownable {
 
     /// @inheritdoc IVChainMinter
     function setAllocationPoints(
-        address[] calldata _stakers,
+        address[] calldata _lpTokens,
         uint256[] calldata _allocationPoints
     ) external override onlyOwner {
-        require(_stakers.length == _allocationPoints.length, "lengths differ");
+        require(_lpTokens.length == _allocationPoints.length, "lengths differ");
         if (block.timestamp >= startEpochTime + epochDuration)
             _epochTransition();
 
         uint256 availableTokens = _availableTokens();
         int256 _totalAllocationPoints = int256(totalAllocationPoints);
-        address _stakerFactory = stakerFactory;
+        IVStaker _staker = IVStaker(staker);
         StakerInfo memory stakerInfo;
-        for (uint256 i = 0; i < _stakers.length; ++i) {
+        for (uint256 i = 0; i < _lpTokens.length; ++i) {
             require(
-                IVStakerFactory(_stakerFactory).getPoolStaker(
-                    IVStaker(_stakers[i]).lpToken()
-                ) == _stakers[i],
-                "invalid staker"
+                _staker.isLpTokenValid(_lpTokens[i]),
+                "one of lp tokens is not valid"
             );
 
-            stakerInfo = stakers[_stakers[i]];
+            stakerInfo = stakers[_lpTokens[i]];
             _updateStakerInfo(
                 stakerInfo,
-                allocationPoints[_stakers[i]],
+                allocationPoints[_lpTokens[i]],
                 availableTokens
             );
-            stakers[_stakers[i]] = stakerInfo;
+            stakers[_lpTokens[i]] = stakerInfo;
 
             _totalAllocationPoints +=
                 int256(_allocationPoints[i]) -
-                int256(allocationPoints[_stakers[i]]);
-            allocationPoints[_stakers[i]] = _allocationPoints[i];
+                int256(allocationPoints[_lpTokens[i]]);
+            allocationPoints[_lpTokens[i]] = _allocationPoints[i];
         }
         require(
             uint256(_totalAllocationPoints) <= ALLOCATION_POINTS_FACTOR,
@@ -199,51 +183,40 @@ contract VChainMinter is IVChainMinter, Ownable {
     }
 
     /// @inheritdoc IVChainMinter
-    function transferRewards(address to, uint256 amount) external override {
+    function transferRewards(
+        address to,
+        address lpToken,
+        uint256 amount
+    ) external override {
         require(block.timestamp >= emissionStartTs, "too early");
-        require(
-            IVStakerFactory(stakerFactory).getPoolStaker(
-                IVStaker(msg.sender).lpToken()
-            ) == msg.sender,
-            "invalid staker"
-        );
+        require(staker == msg.sender, "invalid staker");
         if (block.timestamp >= startEpochTime + epochDuration)
             _epochTransition();
 
-        StakerInfo memory stakerInfo = stakers[msg.sender];
+        StakerInfo memory stakerInfo = stakers[lpToken];
         _updateStakerInfo(
             stakerInfo,
-            allocationPoints[msg.sender],
+            allocationPoints[lpToken],
             _availableTokens()
         );
 
-        stakers[msg.sender] = stakerInfo;
+        stakers[lpToken] = stakerInfo;
         SafeERC20.safeTransfer(IERC20(vrsw), to, amount);
-        emit TransferRewards(to, amount);
+        emit TransferRewards(to, lpToken, amount);
     }
 
     /// @inheritdoc IVChainMinter
-    function mintGVrsw(address to, uint256 amount) external override {
+    function mintVeVrsw(address to, uint256 amount) external override {
         require(amount > 0, "zero amount");
-        require(
-            IVStakerFactory(stakerFactory).getPoolStaker(
-                IVStaker(msg.sender).lpToken()
-            ) == msg.sender,
-            "invalid staker"
-        );
-        SafeERC20.safeTransfer(IERC20(gVrsw), to, amount);
+        require(staker == msg.sender, "invalid staker");
+        veVrsw.mint(to, amount);
     }
 
     /// @inheritdoc IVChainMinter
-    function burnGVrsw(address from, uint256 amount) external override {
+    function burnVeVrsw(address from, uint256 amount) external override {
         require(amount > 0, "zero amount");
-        require(
-            IVStakerFactory(stakerFactory).getPoolStaker(
-                IVStaker(msg.sender).lpToken()
-            ) == msg.sender,
-            "invalid staker"
-        );
-        SafeERC20.safeTransferFrom(IERC20(gVrsw), from, address(this), amount);
+        require(staker == msg.sender, "invalid staker");
+        veVrsw.burn(from, amount);
     }
 
     /// @inheritdoc IVChainMinter
@@ -252,18 +225,25 @@ contract VChainMinter is IVChainMinter, Ownable {
         _epochTransition();
     }
 
+    function setStaker(address _newStaker) external override onlyOwner {
+        require(_newStaker != address(0), "zero address");
+        require(staker == address(0), "staker can be set once");
+        staker = _newStaker;
+        emit NewStaker(_newStaker);
+    }
+
     /// @inheritdoc IVChainMinter
     function calculateTokensForStaker(
-        address staker
+        address lpToken
     ) external view override returns (uint256) {
         uint256 _tokensAvailable = block.timestamp >=
             startEpochTime + epochDuration
             ? _availableTokensForNextEpoch()
             : _availableTokens();
-        StakerInfo memory stakerInfo = stakers[staker];
+        StakerInfo memory stakerInfo = stakers[lpToken];
         _updateStakerInfo(
             stakerInfo,
-            allocationPoints[staker],
+            allocationPoints[lpToken],
             _tokensAvailable
         );
         return stakerInfo.totalAllocated;

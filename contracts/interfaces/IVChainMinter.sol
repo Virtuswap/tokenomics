@@ -11,14 +11,18 @@ interface IVChainMinter {
      * @notice Emitted when a new staker factory is set.
      * @param stakerFactoryAddress is the address of the new staker factory.
      */
-    event NewStakerFactory(address stakerFactoryAddress);
+    event NewStaker(address stakerFactoryAddress);
 
     /**
      * @notice Emitted when rewards are transferred to an address.
      * @param to The address receiving the rewards.
      * @param amount The amount of rewards transferred.
      */
-    event TransferRewards(address indexed to, uint256 amount);
+    event TransferRewards(
+        address indexed to,
+        address indexed lpToken,
+        uint256 amount
+    );
 
     /**
      * @notice Changes minting epoch duration and preparation time.
@@ -66,12 +70,12 @@ interface IVChainMinter {
     ) external;
 
     /**
-     * @notice Sets the address of the staker factory contract.
+     * @notice Sets the address of the staker contract.
      * @dev Can be called only by owner.
      * @notice The staker factory can be set only once
-     * @param _newStakerFactory The address of the new staker factory contract.
+     * @param _newStaker The address of the new staker contract.
      */
-    function setStakerFactory(address _newStakerFactory) external;
+    function setStaker(address _newStaker) external;
 
     /**
      * @notice Returns the timestamp when VRSW emission began.
@@ -93,7 +97,11 @@ interface IVChainMinter {
      * - The current timestamp must be later than the contract's emission start time.
      * - The amount to transfer must be greater than zero.
      */
-    function transferRewards(address to, uint256 amount) external;
+    function transferRewards(
+        address to,
+        address lpToken,
+        uint256 amount
+    ) external;
 
     /**
      * @notice Mint gVrsw tokens to the specified to address.
@@ -103,7 +111,7 @@ interface IVChainMinter {
      * - amount must be greater than zero.
      * - The sender must be a valid staker.
      */
-    function mintGVrsw(address to, uint256 amount) external;
+    function mintVeVrsw(address to, uint256 amount) external;
 
     /**
      * @notice Burn amount of gVrsw tokens from the specified to address.
@@ -113,7 +121,7 @@ interface IVChainMinter {
      * - amount must be greater than zero.
      * - The sender must be a valid staker.
      */
-    function burnGVrsw(address from, uint256 amount) external;
+    function burnVeVrsw(address from, uint256 amount) external;
 
     /**
      * @notice Triggers next epoch transition

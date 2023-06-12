@@ -8,7 +8,6 @@ import "./libraries/EmissionMath.sol";
 import "./interfaces/IVGlobalMinter.sol";
 import "./VVestingWallet.sol";
 import "./Vrsw.sol";
-import "./GVrsw.sol";
 
 /**
  * @title vGlobalMinter
@@ -50,9 +49,6 @@ contract VGlobalMinter is IVGlobalMinter, Ownable {
     // VRSW token
     Vrsw public immutable vrsw;
 
-    // gVRSW token
-    GVrsw public immutable gVrsw;
-
     /**
      * @dev Constructor function. All VRSW tokens must be transferred here right
      * after contract creation.
@@ -71,12 +67,6 @@ contract VGlobalMinter is IVGlobalMinter, Ownable {
         epochPreparationTime = 1 weeks;
         startEpochTime = _emissionStartTs - epochDuration;
         vrsw = Vrsw(_vrsw);
-        gVrsw = new GVrsw(address(this));
-    }
-
-    /// @inheritdoc IVGlobalMinter
-    function addChainMinter() external override onlyOwner {
-        gVrsw.mint(msg.sender, 1e9 * 1e18);
     }
 
     /// @inheritdoc IVGlobalMinter

@@ -9,6 +9,8 @@ import "./Types.sol";
 import "./interfaces/IVStaker.sol";
 import "./interfaces/IVChainMinter.sol";
 import "./interfaces/IVTokenomicsParams.sol";
+import "./external/interfaces/IvPair.sol";
+import "./external/interfaces/IvPairFactory.sol";
 
 contract VStaker is IVStaker {
     // approximately 3 years limit
@@ -19,48 +21,48 @@ contract VStaker is IVStaker {
     /**
      * @dev The amount of LP tokens staked by each user.
      */
-    mapping(address => SD59x18) public lpStake;
+    mapping(address => LpStake[]) public lpStakes;
+    mapping(address => mapping(address => uint)) private lpStakeIndex;
 
     /**
      * @dev The mu value of each user's stake. You can learn more about mu and
      * staking formula in Virtuswap Tokenomics Whitepaper.
      */
-    mapping(address => SD59x18) public mu;
+    mapping(address => mapping(address => SD59x18)) public mu;
 
     /**
      * @dev Accrued rewards currently available for user to withdraw.
      */
-    mapping(address => SD59x18) public rewards;
+    mapping(address => mapping(address => SD59x18)) public rewards;
 
     /**
      * @dev The snapshot of rewardsCoefficintGlobal at the time of the last update.
      */
-    mapping(address => SD59x18) public rewardsCoefficient;
+    mapping(address => mapping(address => SD59x18)) public rewardsCoefficient;
 
     /**
      * @dev The VRSW stakes of each user.
      */
-    mapping(address => Stake[]) public stakes;
+    mapping(address => VrswStake[]) public vrswStakes;
 
     /**
      * @dev Sum of all user's mu values.
      */
-    SD59x18 public totalMu;
+    mapping(address => SD59x18) public totalMu;
 
     /**
      * @dev Coefficient needed to calculate accrued rewards. It's equal to:
      * SUM(vrswEmission(t_{i - 1}, t_{i}) / totalMu(t_i)), where t_i is the
      * timestamp when totalMu has changed.
      */
-    SD59x18 public rewardsCoefficientGlobal;
+    mapping(address => SD59x18) public rewardsCoefficientGlobal;
 
     /**
      * @dev The total amount of VRSW tokens available for distribution as rewards.
      */
-    SD59x18 public totalVrswAvailable;
+    mapping(address => SD59x18) public totalVrswAvailable;
 
-    // lp token address
-    address public immutable lpToken;
+    address public immutable vPairFactory;
 
     // minter address
     address public immutable minter;
@@ -92,31 +94,34 @@ contract VStaker is IVStaker {
         _;
     }
 
-    modifier notVrswOnlyPool() {
-        require(lpToken != address(0), "can stake only vrsw");
+    modifier validLpToken(address lpToken) {
+        require(isLpTokenValid(lpToken), "invalid lp token");
         _;
     }
 
     constructor(
-        address _lpToken,
         address _vrswToken,
         address _minter,
-        address _tokenomicsParams
+        address _tokenomicsParams,
+        address _vPairFactory
     ) {
-        lpToken = _lpToken;
         minter = _minter;
         vrswToken = _vrswToken;
         tokenomicsParams = _tokenomicsParams;
         emissionStartTs = IVChainMinter(minter).emissionStartTs();
+        vPairFactory = _vPairFactory;
     }
 
     /// @inheritdoc IVStaker
     function stakeVrsw(
         uint256 amount
     ) external override notBefore(emissionStartTs) positiveAmount(amount) {
-        _updateStateBefore(msg.sender);
+        if (lpStakes[msg.sender].length == 0)
+            lpStakes[msg.sender].push(LpStake(address(0), UNIT));
+
+        _updateEveryStateBefore(msg.sender);
         _stakeUnlocked(msg.sender, amount);
-        _updateStateAfter(msg.sender);
+        _updateEveryStateAfter(msg.sender);
 
         SafeERC20.safeTransferFrom(
             IERC20(vrswToken),
@@ -124,23 +129,35 @@ contract VStaker is IVStaker {
             address(this),
             amount
         );
-        IVChainMinter(minter).mintGVrsw(msg.sender, amount);
+        IVChainMinter(minter).mintVeVrsw(msg.sender, amount);
         emit StakeVrsw(msg.sender, amount);
     }
 
     /// @inheritdoc IVStaker
     function stakeLp(
+        address lpToken,
         uint256 amount
     )
         external
         override
         notBefore(emissionStartTs)
         positiveAmount(amount)
-        notVrswOnlyPool
+        validLpToken(lpToken)
     {
-        _updateStateBefore(msg.sender);
-        lpStake[msg.sender] = lpStake[msg.sender].add(sd(int256(amount)));
-        _updateStateAfter(msg.sender);
+        if (lpStakes[msg.sender].length == 0)
+            lpStakes[msg.sender].push(LpStake(address(0), UNIT));
+
+        _updateStateBefore(msg.sender, lpToken);
+        uint lpStakeIdx = lpStakeIndex[msg.sender][lpToken];
+        if (lpStakeIdx == 0) {
+            lpStakes[msg.sender].push(LpStake(lpToken, sd(int256(amount))));
+            lpStakeIndex[msg.sender][lpToken] = lpStakes[msg.sender].length - 1;
+        } else {
+            lpStakes[msg.sender][lpStakeIdx].amount = lpStakes[msg.sender][
+                lpStakeIdx
+            ].amount.add(sd(int256(amount)));
+        }
+        _updateStateAfter(msg.sender, lpToken);
 
         SafeERC20.safeTransferFrom(
             IERC20(lpToken),
@@ -148,61 +165,84 @@ contract VStaker is IVStaker {
             address(this),
             amount
         );
-        emit StakeLp(msg.sender, amount);
+        emit StakeLp(msg.sender, lpToken, amount);
     }
 
     /// @inheritdoc IVStaker
-    function claimRewards() external override notBefore(emissionStartTs) {
-        _updateStateBefore(msg.sender);
-        uint256 amountToClaim = _calculateAccruedRewards(msg.sender, true);
-        rewards[msg.sender] = ZERO;
+    function claimRewards(
+        address lpToken
+    ) external override notBefore(emissionStartTs) {
+        _updateStateBefore(msg.sender, lpToken);
+        uint256 amountToClaim = _calculateAccruedRewards(
+            msg.sender,
+            lpToken,
+            true
+        );
+        rewards[msg.sender][lpToken] = ZERO;
 
         if (amountToClaim > 0) {
-            IVChainMinter(minter).transferRewards(msg.sender, amountToClaim);
+            IVChainMinter(minter).transferRewards(
+                msg.sender,
+                lpToken,
+                amountToClaim
+            );
         }
-        emit RewardsClaimed(msg.sender, amountToClaim);
+        emit RewardsClaimed(msg.sender, lpToken, amountToClaim);
     }
 
     /// @inheritdoc IVStaker
     function unstakeLp(
+        address lpToken,
         uint256 amount
     )
         external
         override
         notBefore(emissionStartTs)
         positiveAmount(amount)
-        notVrswOnlyPool
+        validLpToken(lpToken)
     {
-        require(
-            amount <= uint256(unwrap(lpStake[msg.sender])),
-            "not enough tokens"
-        );
-        _updateStateBefore(msg.sender);
-        lpStake[msg.sender] = lpStake[msg.sender].sub(sd(int256(amount)));
-        _updateStateAfter(msg.sender);
+        uint lpStakeIdx = lpStakeIndex[msg.sender][lpToken];
+        SD59x18 currentAmount = lpStakes[msg.sender][lpStakeIdx].amount;
+        require(lpStakeIdx != 0, "no such stake");
+        require(amount <= uint256(unwrap(currentAmount)), "not enough tokens");
+        _updateStateBefore(msg.sender, lpToken);
+        SD59x18 newAmount = currentAmount.sub(sd(int256(amount)));
+        if (unwrap(newAmount) == 0) {
+            lpStakes[msg.sender][lpStakeIdx] = lpStakes[msg.sender][
+                lpStakes[msg.sender].length - 1
+            ];
+            lpStakeIndex[msg.sender][
+                lpStakes[msg.sender][lpStakeIdx].lpToken
+            ] = lpStakeIdx;
+            delete lpStakeIndex[msg.sender][lpToken];
+            lpStakes[msg.sender].pop();
+        } else {
+            lpStakes[msg.sender][lpStakeIdx].amount = newAmount;
+        }
+        _updateStateAfter(msg.sender, lpToken);
 
         SafeERC20.safeTransfer(IERC20(lpToken), msg.sender, amount);
 
-        emit UnstakeLp(msg.sender, amount);
+        emit UnstakeLp(msg.sender, lpToken, amount);
     }
 
     /// @inheritdoc IVStaker
     function unstakeVrsw(
         uint256 amount
     ) external override notBefore(emissionStartTs) positiveAmount(amount) {
-        Stake[] storage senderStakes = stakes[msg.sender];
+        VrswStake[] storage senderStakes = vrswStakes[msg.sender];
         require(senderStakes.length > 0, "no stakes");
         require(
             amount <= uint256(unwrap(senderStakes[0].amount)),
             "not enough tokens"
         );
 
-        _updateStateBefore(msg.sender);
+        _updateEveryStateBefore(msg.sender);
         senderStakes[0].amount = senderStakes[0].amount.sub(sd(int256(amount)));
-        _updateStateAfter(msg.sender);
+        _updateEveryStateAfter(msg.sender);
 
         SafeERC20.safeTransfer(IERC20(vrswToken), msg.sender, amount);
-        IVChainMinter(minter).burnGVrsw(msg.sender, amount);
+        IVChainMinter(minter).burnVeVrsw(msg.sender, amount);
 
         emit UnstakeVrsw(msg.sender, amount);
     }
@@ -218,18 +258,20 @@ contract VStaker is IVStaker {
         validLockDuration(lockDuration)
         positiveAmount(amount)
     {
-        Stake[] storage senderStakes = stakes[msg.sender];
+        VrswStake[] storage senderStakes = vrswStakes[msg.sender];
         require(
             senderStakes.length <= STAKE_POSITIONS_LIMIT,
             "stake positions limit is exceeded"
         );
         if (senderStakes.length == 0) {
-            senderStakes.push(Stake(0, 0, ZERO, ZERO));
+            senderStakes.push(VrswStake(0, 0, ZERO, ZERO));
         }
+        if (lpStakes[msg.sender].length == 0)
+            lpStakes[msg.sender].push(LpStake(address(0), UNIT));
 
-        _updateStateBefore(msg.sender);
+        _updateEveryStateBefore(msg.sender);
         _newStakePosition(amount, lockDuration);
-        _updateStateAfter(msg.sender);
+        _updateEveryStateAfter(msg.sender);
 
         SafeERC20.safeTransferFrom(
             IERC20(vrswToken),
@@ -237,7 +279,7 @@ contract VStaker is IVStaker {
             address(this),
             amount
         );
-        IVChainMinter(minter).mintGVrsw(msg.sender, amount);
+        IVChainMinter(minter).mintVeVrsw(msg.sender, amount);
         emit LockVrsw(msg.sender, amount, lockDuration);
     }
 
@@ -252,7 +294,7 @@ contract VStaker is IVStaker {
         validLockDuration(lockDuration)
         positiveAmount(amount)
     {
-        Stake[] storage senderStakes = stakes[msg.sender];
+        VrswStake[] storage senderStakes = vrswStakes[msg.sender];
         require(senderStakes.length > 0, "no stakes");
         require(
             senderStakes.length <= STAKE_POSITIONS_LIMIT,
@@ -263,10 +305,10 @@ contract VStaker is IVStaker {
             "not enough tokens"
         );
 
-        _updateStateBefore(msg.sender);
+        _updateEveryStateBefore(msg.sender);
         senderStakes[0].amount = senderStakes[0].amount.sub(sd(int256(amount)));
         _newStakePosition(amount, lockDuration);
-        _updateStateAfter(msg.sender);
+        _updateEveryStateAfter(msg.sender);
         emit LockStakedVrsw(msg.sender, amount, lockDuration);
     }
 
@@ -278,7 +320,7 @@ contract VStaker is IVStaker {
         require(position > 0, "invalid position");
         require(who != address(0), "zero address");
 
-        Stake memory userStake = stakes[who][position];
+        VrswStake memory userStake = vrswStakes[who][position];
         require(
             userStake.startTs + userStake.lockDuration <= block.timestamp,
             "locked"
@@ -286,11 +328,11 @@ contract VStaker is IVStaker {
 
         uint256 vrswToUnlock = uint256(unwrap(userStake.amount));
 
-        _updateStateBefore(who);
-        stakes[who][position] = stakes[who][stakes[who].length - 1];
-        stakes[who].pop();
+        _updateEveryStateBefore(who);
+        vrswStakes[who][position] = vrswStakes[who][vrswStakes[who].length - 1];
+        vrswStakes[who].pop();
         _stakeUnlocked(who, vrswToUnlock);
-        _updateStateAfter(who);
+        _updateEveryStateAfter(who);
 
         emit UnlockVrsw(who, vrswToUnlock);
     }
@@ -299,7 +341,7 @@ contract VStaker is IVStaker {
     function checkLock(
         address who
     ) external view override returns (uint[] memory unlockedPositions) {
-        Stake[] storage userStakes = stakes[who];
+        VrswStake[] storage userStakes = vrswStakes[who];
         uint256 stakesLength = userStakes.length;
         uint256 unlockedPositionsNumber;
         for (uint256 i = 1; i < stakesLength; ++i) {
@@ -322,18 +364,35 @@ contract VStaker is IVStaker {
     }
 
     /// @inheritdoc IVStaker
-    function viewRewards(address who) external view override returns (uint256) {
-        return _calculateAccruedRewards(who, false);
+    function viewRewards(
+        address who,
+        address lpToken
+    ) external view override returns (uint256) {
+        return _calculateAccruedRewards(who, lpToken, false);
     }
 
     /// @inheritdoc IVStaker
-    function viewStakes()
+    function viewVrswStakes()
         external
         view
         override
-        returns (Stake[] memory _stakes)
+        returns (VrswStake[] memory _vrswStakes)
     {
-        _stakes = stakes[msg.sender];
+        _vrswStakes = vrswStakes[msg.sender];
+    }
+
+    function viewLpStakes()
+        external
+        view
+        override
+        returns (LpStake[] memory _lpStakes)
+    {
+        _lpStakes = lpStakes[msg.sender];
+    }
+
+    function isLpTokenValid(address lpToken) public view returns (bool) {
+        (address token0, address token1) = IvPair(lpToken).getTokens();
+        return IvPairFactory(vPairFactory).pairs(token0, token1) == lpToken;
     }
 
     /**
@@ -342,9 +401,9 @@ contract VStaker is IVStaker {
      * @param lockDuration Duration of the lock period for the stake
      */
     function _newStakePosition(uint256 amount, uint128 lockDuration) private {
-        Stake[] storage senderStakes = stakes[msg.sender];
+        VrswStake[] storage senderStakes = vrswStakes[msg.sender];
         senderStakes.push(
-            Stake(
+            VrswStake(
                 uint128(block.timestamp),
                 lockDuration,
                 exp(
@@ -363,13 +422,13 @@ contract VStaker is IVStaker {
      * @param amount Amount of VRSW tokens to stake
      */
     function _stakeUnlocked(address who, uint256 amount) private {
-        Stake[] storage senderStakes = stakes[who];
+        VrswStake[] storage senderStakes = vrswStakes[who];
 
         if (senderStakes.length == 0) {
-            senderStakes.push(Stake(0, 0, ZERO, ZERO));
+            senderStakes.push(VrswStake(0, 0, ZERO, ZERO));
         }
 
-        Stake memory oldStake = senderStakes[0];
+        VrswStake memory oldStake = senderStakes[0];
 
         // discount factor here is calculated considering old discount factor such that
         // it satisfies equation: (a1 + a2) * f2 = (a1 * exp(-rt1) + a2 * exp(-rt2))
@@ -379,7 +438,7 @@ contract VStaker is IVStaker {
         //       f2 - new discount factor,
         //       r  - tokenomics param,
         //       t1, t2 - the timestamps of old stake and new stake respectively
-        senderStakes[0] = Stake(
+        senderStakes[0] = VrswStake(
             uint128(block.timestamp),
             0,
             oldStake
@@ -406,22 +465,118 @@ contract VStaker is IVStaker {
      * @dev Updates the state of the staker before the update
      * @param who The staker address
      */
-    function _updateStateBefore(address who) private {
-        (
-            totalVrswAvailable,
-            rewardsCoefficient[who],
-            rewardsCoefficientGlobal,
-            rewards[who]
-        ) = _calculateStateBefore(who);
+    function _updateEveryStateBefore(address who) private {
+        address lpToken;
+        uint lpStakesNumber = lpStakes[who].length;
+        for (uint i = 0; i < lpStakesNumber; ++i) {
+            lpToken = lpStakes[who][i].lpToken;
+            _updateStateBefore(who, lpToken);
+        }
     }
 
     /**
      * @dev Updates the state of the staker after the update
      * @param who The staker address
      */
-    function _updateStateAfter(address who) private {
-        Stake[] storage senderStakes = stakes[who];
-        SD59x18 mult;
+    function _updateEveryStateAfter(address who) private {
+        SD59x18 vrswMultiplier = _calculateVrswMultiplier(who);
+        uint lpStakesNumber = lpStakes[who].length;
+        address lpToken;
+        for (uint i = 0; i < lpStakesNumber; ++i) {
+            lpToken = lpStakes[who][i].lpToken;
+            (mu[who][lpToken], totalMu[lpToken]) = _calculateStateAfter(
+                who,
+                lpToken,
+                vrswMultiplier
+            );
+        }
+    }
+
+    /**
+     * @dev Updates the state of the staker before the update
+     * @param who The staker address
+     */
+    function _updateStateBefore(address who, address lpToken) private {
+        (
+            totalVrswAvailable[lpToken],
+            rewardsCoefficient[who][lpToken],
+            rewardsCoefficientGlobal[lpToken],
+            rewards[who][lpToken]
+        ) = _calculateStateBefore(who, lpToken);
+    }
+
+    /**
+     * @dev Updates the state of the staker after the update
+     * @param who The staker address
+     */
+    function _updateStateAfter(address who, address lpToken) private {
+        SD59x18 vrswMultiplier = _calculateVrswMultiplier(who);
+        (mu[who][lpToken], totalMu[lpToken]) = _calculateStateAfter(
+            who,
+            lpToken,
+            vrswMultiplier
+        );
+    }
+
+    /**
+     * @dev Calculates the accrued rewards for the staker
+     * @param who The staker address
+     * @param isStateChanged Whether the global state was changed before this function call
+     * @return The amount of accrued rewards
+     */
+    function _calculateAccruedRewards(
+        address who,
+        address lpToken,
+        bool isStateChanged
+    ) private view returns (uint256) {
+        (, , , SD59x18 _senderRewards) = isStateChanged
+            ? (ZERO, ZERO, ZERO, rewards[who][lpToken])
+            : _calculateStateBefore(who, lpToken);
+        return uint256(unwrap(_senderRewards));
+    }
+
+    /**
+     * @dev Calculates the state of the staker before the update
+     * @param who The staker address
+     */
+    function _calculateStateBefore(
+        address who,
+        address lpToken
+    )
+        private
+        view
+        returns (
+            SD59x18 _totalVrswAvailable,
+            SD59x18 _senderRewardsCoefficient,
+            SD59x18 _rewardsCoefficientGlobal,
+            SD59x18 _senderRewards
+        )
+    {
+        _totalVrswAvailable = sd(
+            int256(
+                uint256(IVChainMinter(minter).calculateTokensForStaker(lpToken))
+            )
+        );
+        _rewardsCoefficientGlobal = unwrap(totalMu[lpToken]) == 0
+            ? ZERO
+            : rewardsCoefficientGlobal[lpToken].add(
+                (_totalVrswAvailable.sub(totalVrswAvailable[lpToken])).div(
+                    totalMu[lpToken]
+                )
+            );
+        _senderRewardsCoefficient = _rewardsCoefficientGlobal;
+        // you can learn more about the formula in Virtuswap Tokenomics Whitepaper
+        _senderRewards = rewards[who][lpToken].add(
+            mu[who][lpToken].mul(
+                _rewardsCoefficientGlobal.sub(rewardsCoefficient[who][lpToken])
+            )
+        );
+    }
+
+    function _calculateVrswMultiplier(
+        address who
+    ) private view returns (SD59x18 mult) {
+        VrswStake[] storage senderStakes = vrswStakes[who];
         uint256 stakesLength = senderStakes.length;
         for (uint256 i = 0; i < stakesLength; ++i) {
             mult = mult.add(
@@ -438,65 +593,19 @@ contract VStaker is IVStaker {
             );
         }
         mult = mult.add(UNIT);
-        SD59x18 muNew = (
-            lpToken == address(0)
-                ? UNIT
-                : lpStake[who].pow(IVTokenomicsParams(tokenomicsParams).alpha())
-        ).mul(mult.pow(IVTokenomicsParams(tokenomicsParams).beta()));
-        totalMu = totalMu.add(muNew.sub(mu[who]));
-        mu[who] = muNew;
     }
 
-    /**
-     * @dev Calculates the accrued rewards for the staker
-     * @param who The staker address
-     * @param isStateChanged Whether the global state was changed before this function call
-     * @return The amount of accrued rewards
-     */
-    function _calculateAccruedRewards(
+    function _calculateStateAfter(
         address who,
-        bool isStateChanged
-    ) private view returns (uint256) {
-        (, , , SD59x18 _senderRewards) = isStateChanged
-            ? (ZERO, ZERO, ZERO, rewards[who])
-            : _calculateStateBefore(who);
-        return uint256(unwrap(_senderRewards));
-    }
-
-    /**
-     * @dev Calculates the state of the staker before the update
-     * @param who The staker address
-     */
-    function _calculateStateBefore(
-        address who
-    )
-        private
-        view
-        returns (
-            SD59x18 _totalVrswAvailable,
-            SD59x18 _senderRewardsCoefficient,
-            SD59x18 _rewardsCoefficientGlobal,
-            SD59x18 _senderRewards
-        )
-    {
-        _totalVrswAvailable = sd(
-            int256(
-                uint256(
-                    IVChainMinter(minter).calculateTokensForStaker(
-                        address(this)
-                    )
-                )
-            )
-        );
-        _rewardsCoefficientGlobal = unwrap(totalMu) == 0
-            ? ZERO
-            : rewardsCoefficientGlobal.add(
-                (_totalVrswAvailable.sub(totalVrswAvailable)).div(totalMu)
+        address lpToken,
+        SD59x18 vrswMultiplier
+    ) private view returns (SD59x18 _mu, SD59x18 _totalMu) {
+        _mu = lpStakes[who][lpStakeIndex[who][lpToken]]
+            .amount
+            .pow(IVTokenomicsParams(tokenomicsParams).alpha())
+            .mul(
+                vrswMultiplier.pow(IVTokenomicsParams(tokenomicsParams).beta())
             );
-        _senderRewardsCoefficient = _rewardsCoefficientGlobal;
-        // you can learn more about the formula in Virtuswap Tokenomics Whitepaper
-        _senderRewards = rewards[who].add(
-            mu[who].mul(_rewardsCoefficientGlobal.sub(rewardsCoefficient[who]))
-        );
+        _totalMu = totalMu[lpToken].add(_mu.sub(mu[who][lpToken]));
     }
 }

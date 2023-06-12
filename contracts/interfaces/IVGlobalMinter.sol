@@ -27,16 +27,6 @@ interface IVGlobalMinter {
     function getAllVestingWallets() external view returns (address[] memory);
 
     /**
-     * @notice Adds new vChainMinter. Should be called whenever new vChainMinter
-     * is deployed on the new chain. Currently the transfers between chains are
-     * done manually using intermediary wallet (contracts owner).
-     *
-     * Requirements:
-     * - The caller must be the owner of the contract.
-     */
-    function addChainMinter() external;
-
-    /**
      * @notice Transfers to vChainMinters necessary amount of VRSW tokens for the
      * next mining epoch according to the schedule defined in EmissionMath library.
      * Currently the transfers are done manually using intermediary wallet (contracts owner).
