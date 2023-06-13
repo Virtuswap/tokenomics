@@ -3,19 +3,20 @@
 pragma solidity 0.8.18;
 
 /**
- * @title Interface for vChainMinter contract, which handles VRSW and gVRSW tokens distribution
+ * @title Interface for vChainMinter contract, which handles VRSW and veVRSW tokens distribution
  * among stakers.
  */
 interface IVChainMinter {
     /**
-     * @notice Emitted when a new staker factory is set.
-     * @param stakerFactoryAddress is the address of the new staker factory.
+     * @notice Emitted when a new stakeris set.
+     * @param stakerAddress is the address of the new staker factory.
      */
-    event NewStaker(address stakerFactoryAddress);
+    event NewStaker(address stakerAddress);
 
     /**
      * @notice Emitted when rewards are transferred to an address.
      * @param to The address receiving the rewards.
+     * @param lpToken The address of lpToken for staking of which the rewards are transferred.
      * @param amount The amount of rewards transferred.
      */
     event TransferRewards(
@@ -50,22 +51,21 @@ interface IVChainMinter {
     function prepareForNextEpoch(uint256 nextBalance) external;
 
     /**
-     * @dev Sets the allocation points for a list of stakers.
+     * @dev Sets the allocation points for a list of lpTokens stakers.
      *
      * This function allows the owner of the contract to set the allocation points
-     * for a list of stakers, which determines their share of the total rewards
+     * for a list of lpTokens stakers, which determines their share of the total rewards
      * distributed by the contract. The total allocation points must be non-zero,
-     * and each staker must be valid and registered with the associated staker
-     * factory contract.
+     * and each lpToken must be registered in Virtuswap pairs factory.
      *
-     * @param stakers The addresses of the stakers to set the allocation points for.
+     * @param lpTokens The addresses of the stakers lpTokens to set the allocation points for.
      * @param allocationPoints The allocation points to set for each staker.
      *
      * Requirements:
      * - The caller must be the owner of the contract.
      */
     function setAllocationPoints(
-        address[] calldata stakers,
+        address[] calldata lpTokens,
         uint256[] calldata allocationPoints
     ) external;
 
@@ -104,9 +104,9 @@ interface IVChainMinter {
     ) external;
 
     /**
-     * @notice Mint gVrsw tokens to the specified to address.
-     * @param to The address to which the minted gVrsw tokens will be sent.
-     * @param amount The amount of gVrsw tokens to be minted.
+     * @notice Mint veVrsw tokens to the specified to address.
+     * @param to The address to which the minted veVrsw tokens will be sent.
+     * @param amount The amount of veVrsw tokens to be minted.
      * Requirements:
      * - amount must be greater than zero.
      * - The sender must be a valid staker.
@@ -114,9 +114,9 @@ interface IVChainMinter {
     function mintVeVrsw(address to, uint256 amount) external;
 
     /**
-     * @notice Burn amount of gVrsw tokens from the specified to address.
-     * @param from The address from which the gVrsw tokens will be burned.
-     * @param amount The amount of gVrsw tokens to be burned.
+     * @notice Burn amount of veVrsw tokens from the specified to address.
+     * @param from The address from which the veVrsw tokens will be burned.
+     * @param amount The amount of veVrsw tokens to be burned.
      * Requirements:
      * - amount must be greater than zero.
      * - The sender must be a valid staker.
@@ -129,11 +129,11 @@ interface IVChainMinter {
     function triggerEpochTransition() external;
 
     /**
-     * @notice Calculates the amount of tokens a staker is eligible to receive from VRSW algorithmic emission.
-     * @param staker The address of the staker.
+     * @notice Calculates the amount of tokens an lpToken staker is eligible to receive from VRSW algorithmic emission.
+     * @param lpToken The address of the staker lpToken.
      * @return The amount of tokens the staker is eligible to receive.
      */
     function calculateTokensForStaker(
-        address staker
+        address lpToken
     ) external view returns (uint256);
 }

@@ -11,8 +11,7 @@ import "./Vrsw.sol";
 
 /**
  * @title vGlobalMinter
- * @dev This contract is responsible for minting and distributing VRSW and gVrsw
- * tokens.
+ * @dev This contract is responsible for minting and distributing VRSW tokens.
  */
 contract VGlobalMinter is IVGlobalMinter, Ownable {
     // list of all vesting wallets that were created by the minter

@@ -18,6 +18,7 @@ interface IVStaker {
     /**
      * @notice Emitted when who stakes amount of LP tokens.
      * @param who Address of the account that stakes the tokens.
+     * @param lpToken Address of staked LP token.
      * @param amount Amount of LP tokens being staked.
      */
     event StakeLp(address indexed who, address indexed lpToken, uint256 amount);
@@ -25,6 +26,7 @@ interface IVStaker {
     /**
      * @notice Emitted when who claims amount of accrued rewards.
      * @param who Address of the account that claims the rewards.
+     * @param lpToken Address of LP token, for staking which the rewards are claimed.
      * @param amount Amount of rewards being claimed.
      */
     event RewardsClaimed(
@@ -36,6 +38,7 @@ interface IVStaker {
     /**
      * @notice Emitted when who unstakes amount of LP tokens.
      * @param who Address of the account that unstakes the tokens.
+     * @param lpToken Address of unstaked LP token.
      * @param amount Amount of LP tokens being unstaked.
      */
     event UnstakeLp(
@@ -86,6 +89,7 @@ interface IVStaker {
 
     /**
      * @notice Stake LP tokens into the vStaker contract.
+     * @param lpToken Address of staked LP token.
      * @param amount The amount of LP tokens to stake.
      */
     function stakeLp(address lpToken, uint256 amount) external;
@@ -93,6 +97,7 @@ interface IVStaker {
     /**
 
      * @notice Allows a user to claim their accrued VRSW rewards. The user's accrued rewards are calculated using the
+     * @param lpToken Address of LP token.
      * _calculateAccruedRewards function. The rewards claimed are transferred
      * to the user's address using the transferRewards function of the IvMinter contract.
 */
@@ -102,6 +107,7 @@ interface IVStaker {
      * @notice Returns the amount of VRSW rewards that a user has accrued but not yet claimed. The user's accrued rewards are
      * calculated using the _calculateAccruedRewards function.
      * @param who The address of the user to query for accrued rewards.
+     * @param lpToken Address of LP token.
      * @return rewards The amount of VRSW rewards that the user has accrued but not yet claimed.
      */
     function viewRewards(
@@ -111,20 +117,31 @@ interface IVStaker {
 
     /**
      *
-     * @notice Returns an array of Stake structures containing information about the user's VRSW stakes.
-     * @return vrswStakes An array of Stake structures containing information about the user's VRSW stakes.
+     * @notice Returns an array of VrswStake structures containing information about the user's VRSW stakes.
+     * @return vrswStakes An array of VrswStake structures containing information about the user's VRSW stakes.
      */
     function viewVrswStakes()
         external
         view
         returns (VrswStake[] memory vrswStakes);
 
+    /**
+     *
+     * @notice Returns an array of LpStake structures containing information about the user's LP tokens stakes.
+     * @return lpStakes An array of LpStake structures containing information about the user's LP tokens stakes.
+     */
     function viewLpStakes() external view returns (LpStake[] memory lpStakes);
 
+    /**
+     * @notice Checks if lpToken is a valid lp token registered in Virtuswap pairs factory
+     * @param lpToken Address of LP token.
+     * @return Whether lpToken is valid
+     */
     function isLpTokenValid(address lpToken) external view returns (bool);
 
     /**
      * @dev Allows the user to unstake LP tokens from the contract. The LP tokens are transferred back to the user's wallet.
+     * @param lpToken Address of unstaked LP token.
      * @param amount The amount of LP tokens to unstake.
      */
     function unstakeLp(address lpToken, uint256 amount) external;

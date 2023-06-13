@@ -20,33 +20,44 @@ contract VStaker is IVStaker {
 
     /**
      * @dev The amount of LP tokens staked by each user.
+     * [wallet]
      */
     mapping(address => LpStake[]) public lpStakes;
+
+    /**
+     * @dev The index in lpStakes array of [wallet][lpToken]
+     */
     mapping(address => mapping(address => uint)) public lpStakeIndex;
 
     /**
-     * @dev The mu value of each user's stake. You can learn more about mu and
+     * @dev The mu value of each user's LP stake. You can learn more about mu and
      * staking formula in Virtuswap Tokenomics Whitepaper.
+     * [wallet][lpToken]
      */
     mapping(address => mapping(address => SD59x18)) public mu;
 
     /**
-     * @dev Accrued rewards currently available for user to withdraw.
+     * @dev Accrued rewards currently available for user to withdraw for staking
+     * specified lpToken.
+     * [wallet][lpToken]
      */
     mapping(address => mapping(address => SD59x18)) public rewards;
 
     /**
      * @dev The snapshot of rewardsCoefficintGlobal at the time of the last update.
+     * [wallet][lpToken]
      */
     mapping(address => mapping(address => SD59x18)) public rewardsCoefficient;
 
     /**
      * @dev The VRSW stakes of each user.
+     * [wallet]
      */
     mapping(address => VrswStake[]) public vrswStakes;
 
     /**
-     * @dev Sum of all user's mu values.
+     * @dev Sum of all user's mu values for a specified lpToken.
+     * [lpToken]
      */
     mapping(address => SD59x18) public totalMu;
 
@@ -54,14 +65,18 @@ contract VStaker is IVStaker {
      * @dev Coefficient needed to calculate accrued rewards. It's equal to:
      * SUM(vrswEmission(t_{i - 1}, t_{i}) / totalMu(t_i)), where t_i is the
      * timestamp when totalMu has changed.
+     * [lpToken]
      */
     mapping(address => SD59x18) public rewardsCoefficientGlobal;
 
     /**
-     * @dev The total amount of VRSW tokens available for distribution as rewards.
+     * @dev The total amount of VRSW tokens available for distribution as rewards
+     * for staking specified lpToken.
+     * [lpToken]
      */
     mapping(address => SD59x18) public totalVrswAvailable;
 
+    // Virtuswap pair factory address
     address public immutable vPairFactory;
 
     // minter address
@@ -319,7 +334,10 @@ contract VStaker is IVStaker {
     ) external override notBefore(emissionStartTs) {
         uint userStakesNumber = vrswStakes[who].length;
         require(who != address(0), "zero address");
-        require(position > 0 && position < userStakesNumber, "invalid position");
+        require(
+            position > 0 && position < userStakesNumber,
+            "invalid position"
+        );
 
         VrswStake memory userStake = vrswStakes[who][position];
         require(
@@ -391,6 +409,7 @@ contract VStaker is IVStaker {
         _lpStakes = lpStakes[msg.sender];
     }
 
+    /// @inheritdoc IVStaker
     function isLpTokenValid(
         address lpToken
     ) public view override returns (bool) {
@@ -465,8 +484,8 @@ contract VStaker is IVStaker {
     }
 
     /**
-     * @dev Updates the state of the staker before the update
-     * @param who The staker address
+     * @dev Updates every user's state of all staked lpTokens before the update
+     * @param who The user's address
      */
     function _updateEveryStateBefore(address who) private {
         address lpToken;
@@ -478,8 +497,8 @@ contract VStaker is IVStaker {
     }
 
     /**
-     * @dev Updates the state of the staker after the update
-     * @param who The staker address
+     * @dev Updates every user's state of all staked lpTokens after the update
+     * @param who The user's address
      */
     function _updateEveryStateAfter(address who) private {
         SD59x18 vrswMultiplier = _calculateVrswMultiplier(who);
@@ -496,8 +515,8 @@ contract VStaker is IVStaker {
     }
 
     /**
-     * @dev Updates the state of the staker before the update
-     * @param who The staker address
+     * @dev Updates the state of the user before the update
+     * @param who The user's address
      */
     function _updateStateBefore(address who, address lpToken) private {
         (
@@ -509,8 +528,8 @@ contract VStaker is IVStaker {
     }
 
     /**
-     * @dev Updates the state of the staker after the update
-     * @param who The staker address
+     * @dev Updates the state of the user after the update
+     * @param who The user's address
      */
     function _updateStateAfter(address who, address lpToken) private {
         SD59x18 vrswMultiplier = _calculateVrswMultiplier(who);
@@ -522,8 +541,8 @@ contract VStaker is IVStaker {
     }
 
     /**
-     * @dev Calculates the accrued rewards for the staker
-     * @param who The staker address
+     * @dev Calculates the accrued rewards for the user
+     * @param who The user's address
      * @param isStateChanged Whether the global state was changed before this function call
      * @return The amount of accrued rewards
      */
@@ -539,7 +558,8 @@ contract VStaker is IVStaker {
     }
 
     /**
-     * @dev Calculates the state of the staker before the update
+     * @dev Calculates the state of the user before the update
+     * @param lpToken The staked lpToken address
      * @param who The staker address
      */
     function _calculateStateBefore(
@@ -576,6 +596,10 @@ contract VStaker is IVStaker {
         );
     }
 
+    /**
+     * @dev Calculates VRSW multiplier of the user
+     * @param who The staker address
+     */
     function _calculateVrswMultiplier(
         address who
     ) private view returns (SD59x18 mult) {
@@ -598,6 +622,12 @@ contract VStaker is IVStaker {
         mult = mult.add(UNIT);
     }
 
+    /**
+     * @dev Calculates the state of the user before the update
+     * @param lpToken The staked lpToken address
+     * @param who The staker address
+     * @param vrswMultiplier The VRSW multiplier
+     */
     function _calculateStateAfter(
         address who,
         address lpToken,

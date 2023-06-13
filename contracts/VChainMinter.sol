@@ -12,7 +12,7 @@ import "./VeVrsw.sol";
 
 /**
  * @title vChainMinter
- * @dev This contract is responsible for distributing VRSW ang gVRSW tokens to stakers
+ * @dev This contract is responsible for distributing VRSW ang veVRSW tokens to stakers
  */
 contract VChainMinter is IVChainMinter, Ownable {
     struct StakerInfo {
@@ -61,6 +61,7 @@ contract VChainMinter is IVChainMinter, Ownable {
     // allocation points of stakers
     mapping(address => uint256) public allocationPoints;
 
+    // staker contract address
     address public staker;
 
     // timestamp of VRSW emission start
@@ -226,6 +227,7 @@ contract VChainMinter is IVChainMinter, Ownable {
         _epochTransition();
     }
 
+    /// @inheritdoc IVChainMinter
     function setStaker(address _newStaker) external override onlyOwner {
         require(_newStaker != address(0), "zero address");
         require(staker == address(0), "staker can be set once");

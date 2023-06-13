@@ -3,7 +3,7 @@
 pragma solidity 0.8.18;
 
 /**
- * @title Interface for vGlobalMinter contract, which handles VRSW and gVRSW tokens distribution.
+ * @title Interface for vGlobalMinter contract, which handles VRSW tokens distribution.
  */
 interface IVGlobalMinter {
     /**

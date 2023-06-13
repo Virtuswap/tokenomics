@@ -17,7 +17,8 @@ struct VrswStake {
 }
 
 struct LpStake {
+    // address of staked lpToken
     address lpToken;
-    // amount of tokens staked for current position
+    // amount of lpTokens staked
     SD59x18 amount;
 }
