@@ -3,20 +3,21 @@ import { expect } from 'chai';
 import { deployments, ethers } from 'hardhat';
 import {
     Vrsw,
-    GVrsw,
-    VStakerFactory,
+    VeVrsw,
     VChainMinter,
     VGlobalMinter,
     VStaker,
+    Token0,
     Token1,
     Token2,
 } from '../typechain-types';
 import { time } from '@nomicfoundation/hardhat-network-helpers';
 
 describe('vChainMinter 1', function () {
-    let stakerFactory: VStakerFactory;
+    let staker: VStaker;
     let minter: VChainMinter;
     let vrsw: Vrsw;
+    let token0: Token0;
     let globalMinter: VGlobalMinter;
     let accounts: SignerWithAddress[];
 
@@ -25,7 +26,8 @@ describe('vChainMinter 1', function () {
         accounts = await ethers.getSigners();
         await deployments.fixture(['all']);
         minter = await ethers.getContract('chainMinter');
-        stakerFactory = await ethers.getContract('stakerFactory');
+        staker = await ethers.getContract('staker');
+        token0 = await ethers.getContract('Token0');
         globalMinter = await ethers.getContract('globalMinter');
 
         vrsw = await ethers.getContractAt('Vrsw', await minter.vrsw());
@@ -36,7 +38,7 @@ describe('vChainMinter 1', function () {
         await globalMinter.nextEpochTransfer();
 
         await expect(
-            minter.transferRewards(accounts[0].address, '1')
+            minter.transferRewards(accounts[0].address, token0.address, '1')
         ).to.revertedWith('too early');
 
         // skip time to emissionStart
@@ -112,7 +114,6 @@ describe('vChainMinter 1', function () {
             minterFactory.deploy(
                 await time.latest(),
                 ethers.constants.AddressZero,
-                vrsw.address,
                 vrsw.address
             )
         ).to.revertedWith('tokenomicsParams zero address');
@@ -120,43 +121,35 @@ describe('vChainMinter 1', function () {
             minterFactory.deploy(
                 await time.latest(),
                 vrsw.address,
-                ethers.constants.AddressZero,
-                vrsw.address
-            )
-        ).to.revertedWith('vrsw zero address');
-        await expect(
-            minterFactory.deploy(
-                await time.latest(),
-                vrsw.address,
-                vrsw.address,
                 ethers.constants.AddressZero
             )
-        ).to.revertedWith('gVrsw zero address');
+        ).to.revertedWith('vrsw zero address');
     });
 
-    it('mintGVrsw fails when called with zero amount', async () => {
+    it('mintVeVrsw fails when called with zero amount', async () => {
         await expect(
-            minter.mintGVrsw(accounts[1].address, '0')
+            minter.mintVeVrsw(accounts[1].address, '0')
         ).to.revertedWith('zero amount');
     });
 
-    it('mintGVrsw fails when called not by staker', async () => {
-        await expect(minter.mintGVrsw(accounts[1].address, '1')).to.reverted;
+    it('mintVeVrsw fails when called not by staker', async () => {
+        await expect(minter.mintVeVrsw(accounts[1].address, '1')).to.reverted;
     });
 
-    it('burnGVrsw fails when called with zero amount', async () => {
+    it('burnVeVrsw fails when called with zero amount', async () => {
         await expect(
-            minter.burnGVrsw(accounts[1].address, '0')
+            minter.burnVeVrsw(accounts[1].address, '0')
         ).to.revertedWith('zero amount');
     });
 
-    it('burnGVrsw fails when called not by staker', async () => {
-        await expect(minter.burnGVrsw(accounts[1].address, '1')).to.reverted;
+    it('burnVeVrsw fails when called not by staker', async () => {
+        await expect(minter.burnVeVrsw(accounts[1].address, '1')).to.reverted;
     });
 
     it('transferRewards fails when called not by staker', async () => {
-        await expect(minter.transferRewards(accounts[1].address, '1')).to
-            .reverted;
+        await expect(
+            minter.transferRewards(accounts[1].address, token0.address, '1')
+        ).to.reverted;
     });
 
     it('prepareForNextEpoch fails when is called not by owner', async () => {
@@ -165,23 +158,23 @@ describe('vChainMinter 1', function () {
         ).to.revertedWith('Ownable: caller is not the owner');
     });
 
-    it('setStakerFactory fails when is called not by owner', async () => {
+    it('setStaker fails when is called not by owner', async () => {
         await expect(
-            minter.connect(accounts[1]).setStakerFactory(accounts[1].address)
+            minter.connect(accounts[1]).setStaker(accounts[1].address)
         ).to.revertedWith('Ownable: caller is not the owner');
     });
 
-    it('setStakerFactory fails when new staker address is zero', async () => {
+    it('setStaker fails when new staker address is zero', async () => {
         await expect(
-            minter.setStakerFactory(ethers.constants.AddressZero)
+            minter.setStaker(ethers.constants.AddressZero)
         ).to.revertedWith('zero address');
     });
 
-    it('setStakerFactory fails when trying to set stakerfactory second time', async () => {
+    it('setStaker fails when trying to set staker second time', async () => {
         // already set in deploy script
-        await expect(
-            minter.setStakerFactory(accounts[1].address)
-        ).to.revertedWith('staker factory can be set once');
+        await expect(minter.setStaker(accounts[1].address)).to.revertedWith(
+            'staker can be set once'
+        );
     });
 
     it('setEpochParams fails when is called not by owner', async () => {
@@ -267,52 +260,43 @@ describe('vChainMinter 1', function () {
 });
 
 describe('vChainMinter: allocation points', function () {
-    let stakerFactory: VStakerFactory;
+    let staker: VStaker;
+    let token0: Token0;
     let token1: Token1;
     let token2: Token2;
-    let staker1: VStaker;
-    let staker2: VStaker;
-    let staker3: VStaker;
     let minter: VChainMinter;
     let vrsw: Vrsw;
-    let gVrsw: GVrsw;
+    let veVrsw: VeVrsw;
     let globalMinter: VGlobalMinter;
     let accounts: SignerWithAddress[];
+    let staker1Addr: string;
+    let staker2Addr: string;
+    let staker3Addr: string;
 
     before(async () => {
         // init
         accounts = await ethers.getSigners();
         await deployments.fixture(['all']);
-        stakerFactory = await ethers.getContract('stakerFactory');
+        staker = await ethers.getContract('staker');
         minter = await ethers.getContract('chainMinter');
         globalMinter = await ethers.getContract('globalMinter');
+        token0 = await ethers.getContract('Token0');
         token1 = await ethers.getContract('Token1');
         token2 = await ethers.getContract('Token2');
-        await stakerFactory.createPoolStaker(token1.address);
-        await stakerFactory.createPoolStaker(token2.address);
-        const staker1Addr = await stakerFactory.getVRSWPoolStaker();
-        const staker2Addr = await stakerFactory.getPoolStaker(token1.address);
-        const staker3Addr = await stakerFactory.getPoolStaker(token2.address);
-        staker1 = await ethers.getContractAt('VStaker', staker1Addr);
-        staker2 = await ethers.getContractAt('VStaker', staker2Addr);
-        staker3 = await ethers.getContractAt('VStaker', staker3Addr);
+        staker1Addr = token0.address;
+        staker2Addr = token1.address;
+        staker3Addr = token2.address;
 
         vrsw = await ethers.getContractAt('Vrsw', await minter.vrsw());
-        gVrsw = await ethers.getContractAt('GVrsw', await minter.gVrsw());
+        veVrsw = await ethers.getContractAt('VeVrsw', await minter.veVrsw());
 
         await vrsw.approve(minter.address, ethers.utils.parseEther('10000000'));
 
-        // new chain minter deployed
-        await globalMinter.addChainMinter();
         // get tokens for the next epoch
         await globalMinter.nextEpochTransfer();
         // transfer tokens for the next epoch to the chain minter
         await minter.prepareForNextEpoch(
             await vrsw.balanceOf(accounts[0].address)
-        );
-        await gVrsw.transfer(
-            minter.address,
-            ethers.utils.parseEther('1000000000')
         );
 
         // skip time to emissionStart
@@ -327,27 +311,21 @@ describe('vChainMinter: allocation points', function () {
         await minter.setEpochParams('100', '50');
 
         await minter.setAllocationPoints(
-            [staker1.address, staker2.address],
+            [staker1Addr, staker2Addr],
             ['10', '90']
         );
-        const stake1 = await minter.stakers(staker1.address);
-        const stake2 = await minter.stakers(staker2.address);
-        const stake3 = await minter.stakers(staker3.address);
+        const stake1 = await minter.stakers(staker1Addr);
+        const stake2 = await minter.stakers(staker2Addr);
+        const stake3 = await minter.stakers(staker3Addr);
         expect(stake1.totalAllocated).to.be.equal('0');
         expect(stake1.lastUpdated).to.be.above('0');
         expect(stake2.totalAllocated).to.be.equal('0');
         expect(stake2.lastUpdated).to.be.above('0');
         expect(stake3.totalAllocated).to.be.equal('0');
         expect(stake3.lastUpdated).to.be.equal('0');
-        const allocationPoints1 = await minter.allocationPoints(
-            staker1.address
-        );
-        const allocationPoints2 = await minter.allocationPoints(
-            staker2.address
-        );
-        const allocationPoints3 = await minter.allocationPoints(
-            staker3.address
-        );
+        const allocationPoints1 = await minter.allocationPoints(staker1Addr);
+        const allocationPoints2 = await minter.allocationPoints(staker2Addr);
+        const allocationPoints3 = await minter.allocationPoints(staker3Addr);
         expect(allocationPoints1).to.be.equal('10');
         expect(allocationPoints2).to.be.equal('90');
         expect(allocationPoints3).to.be.equal('0');
@@ -356,27 +334,21 @@ describe('vChainMinter: allocation points', function () {
     it('setAllocationPoints updates state', async () => {
         await time.setNextBlockTimestamp((await time.latest()) + 10);
         await minter.setAllocationPoints(
-            [staker1.address, staker2.address, staker3.address],
+            [staker1Addr, staker2Addr, staker3Addr],
             ['0', '0', '100']
         );
-        const stake1 = await minter.stakers(staker1.address);
-        const stake2 = await minter.stakers(staker2.address);
-        const stake3 = await minter.stakers(staker3.address);
+        const stake1 = await minter.stakers(staker1Addr);
+        const stake2 = await minter.stakers(staker2Addr);
+        const stake3 = await minter.stakers(staker3Addr);
         expect(stake1.totalAllocated).to.be.above('0');
         expect(stake1.lastUpdated).to.be.above('0');
         expect(stake2.totalAllocated).to.be.above('0');
         expect(stake2.lastUpdated).to.be.above('0');
         expect(stake3.totalAllocated).to.be.equal('0');
         expect(stake3.lastUpdated).to.be.above('0');
-        const allocationPoints1 = await minter.allocationPoints(
-            staker1.address
-        );
-        const allocationPoints2 = await minter.allocationPoints(
-            staker2.address
-        );
-        const allocationPoints3 = await minter.allocationPoints(
-            staker3.address
-        );
+        const allocationPoints1 = await minter.allocationPoints(staker1Addr);
+        const allocationPoints2 = await minter.allocationPoints(staker2Addr);
+        const allocationPoints3 = await minter.allocationPoints(staker3Addr);
         expect(allocationPoints1).to.be.equal('0');
         expect(allocationPoints2).to.be.equal('0');
         expect(allocationPoints3).to.be.equal('100');
@@ -387,7 +359,7 @@ describe('vChainMinter: allocation points', function () {
             minter
                 .connect(accounts[1])
                 .setAllocationPoints(
-                    [staker1.address, staker2.address, staker3.address],
+                    [staker1Addr, staker2Addr, staker3Addr],
                     ['0', '0', '100']
                 )
         ).to.revertedWith('Ownable: caller is not the owner');
@@ -396,7 +368,7 @@ describe('vChainMinter: allocation points', function () {
     it('setAllocationPoints fails when input lengths are differ', async () => {
         await expect(
             minter.setAllocationPoints(
-                [staker1.address, staker2.address, staker3.address],
+                [staker1Addr, staker2Addr, staker3Addr],
                 ['0', '100']
             )
         ).to.revertedWith('lengths differ');
@@ -405,7 +377,7 @@ describe('vChainMinter: allocation points', function () {
     it('setAllocationPoints fails when sum is more than 100%', async () => {
         await expect(
             minter.setAllocationPoints(
-                [staker1.address, staker2.address, staker3.address],
+                [staker1Addr, staker2Addr, staker3Addr],
                 ['50', '40', '30']
             )
         ).to.revertedWith('sum must be less than 100%');
@@ -414,7 +386,7 @@ describe('vChainMinter: allocation points', function () {
     it('setAllocationPoints fails when called not for staker', async () => {
         await expect(
             minter.setAllocationPoints(
-                [accounts[1].address, staker2.address, staker3.address],
+                [accounts[1].address, staker2Addr, staker3Addr],
                 ['50', '40', '10']
             )
         ).to.reverted;

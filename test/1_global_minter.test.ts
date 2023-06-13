@@ -1,12 +1,11 @@
 import { SignerWithAddress } from '@nomiclabs/hardhat-ethers/signers';
 import { expect } from 'chai';
 import { deployments, ethers } from 'hardhat';
-import { GVrsw, Vrsw, VGlobalMinter } from '../typechain-types';
+import { Vrsw, VGlobalMinter } from '../typechain-types';
 import { time, mine } from '@nomicfoundation/hardhat-network-helpers';
 
 describe('vGlobalMinter 1', function () {
     let vrsw: Vrsw;
-    let gVrsw: GVrsw;
     let minter: VGlobalMinter;
     let accounts: SignerWithAddress[];
 
@@ -16,7 +15,6 @@ describe('vGlobalMinter 1', function () {
         await deployments.fixture(['all']);
         minter = await ethers.getContract('globalMinter');
         vrsw = await ethers.getContractAt('Vrsw', await minter.vrsw());
-        gVrsw = await ethers.getContractAt('GVrsw', await minter.gVrsw());
 
         // skip time to emissionStart
         await time.setNextBlockTimestamp(
@@ -43,12 +41,6 @@ describe('vGlobalMinter 1', function () {
         ).to.revertedWith('zero address');
     });
 
-    it('addChainMinter can be called only by owner', async () => {
-        await expect(
-            minter.connect(accounts[1]).addChainMinter()
-        ).to.revertedWith('Ownable: caller is not the owner');
-    });
-
     it('nextEpochTransfer can be called only by owner', async () => {
         await expect(
             minter.connect(accounts[1]).nextEpochTransfer()
@@ -59,12 +51,6 @@ describe('vGlobalMinter 1', function () {
         await expect(
             minter.connect(accounts[1]).setEpochParams('1', '1')
         ).to.revertedWith('Ownable: caller is not the owner');
-    });
-
-    it('gVRSW.mint can be called only by global minter', async () => {
-        await expect(
-            gVrsw.mint(accounts[0].address, ethers.utils.parseEther('1000'))
-        ).to.revertedWith('Only minter');
     });
 
     it('arbitraryTransfer works', async () => {
@@ -174,14 +160,6 @@ describe('vGlobalMinter 1', function () {
         expect(accountBalanceAfter).to.equal(accountBalanceBefore.add(amount));
     });
 
-    it('addChainMinter works', async () => {
-        const balanceBefore = await gVrsw.balanceOf(accounts[0].address);
-        await minter.addChainMinter();
-        const balanceAfter = await gVrsw.balanceOf(accounts[0].address);
-        expect(balanceBefore).to.be.equal('0');
-        expect(balanceAfter).to.be.equal(ethers.utils.parseEther('1000000000'));
-    });
-
     it('setEpochParams works', async () => {
         // with epoch transition call
         await minter.setEpochParams('1296000', '648000');
@@ -226,7 +204,6 @@ describe('vGlobalMinter 1', function () {
 
 describe('vGlobalMinter 2', function () {
     let vrsw: Vrsw;
-    let gVrsw: GVrsw;
     let minter: VGlobalMinter;
     let accounts: SignerWithAddress[];
 
@@ -236,7 +213,6 @@ describe('vGlobalMinter 2', function () {
         await deployments.fixture(['all']);
         minter = await ethers.getContract('globalMinter');
         vrsw = await ethers.getContractAt('Vrsw', await minter.vrsw());
-        gVrsw = await ethers.getContractAt('GVrsw', await minter.gVrsw());
     });
 
     it('nextEpochTransfer works', async () => {

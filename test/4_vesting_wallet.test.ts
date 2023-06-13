@@ -1,12 +1,11 @@
 import { SignerWithAddress } from '@nomiclabs/hardhat-ethers/signers';
 import { expect } from 'chai';
 import { deployments, ethers } from 'hardhat';
-import { GVrsw, Vrsw, VGlobalMinter, VVestingWallet } from '../typechain-types';
+import { Vrsw, VGlobalMinter } from '../typechain-types';
 import { time, mine } from '@nomicfoundation/hardhat-network-helpers';
 
 describe('VVestingWallet', function () {
     let vrsw: Vrsw;
-    let gVrsw: GVrsw;
     let minter: VGlobalMinter;
     let accounts: SignerWithAddress[];
 

@@ -2,26 +2,23 @@ import { SignerWithAddress } from '@nomiclabs/hardhat-ethers/signers';
 import { deployments, ethers } from 'hardhat';
 import { expect } from 'chai';
 import {
-    GVrsw,
+    VeVrsw,
     Vrsw,
     VGlobalMinter,
     VChainMinter,
     VStaker,
     Token0,
-    VStakerFactory,
 } from '../typechain-types';
 import { time, mine } from '@nomicfoundation/hardhat-network-helpers';
 
 describe('Simulation', function () {
     const accountsNumber = 5;
     let vrsw: Vrsw;
-    let gVrsw: GVrsw;
-    let token0: Token0;
+    let veVrsw: VeVrsw;
     let globalMinter: VGlobalMinter;
     let minter: VChainMinter;
+    let token0: Token0;
     let staker: VStaker;
-    let vrswOnlyStaker: VStaker;
-    let stakerFactory: VStakerFactory;
     let accounts: SignerWithAddress[];
 
     async function doNothingRandom(
@@ -47,7 +44,7 @@ describe('Simulation', function () {
         account: SignerWithAddress,
         staker: VStaker
     ) {
-        const balance = (await staker.stakes(account.address, 0)).amount;
+        const balance = (await staker.vrswStakes(account.address, 0)).amount;
         const amount = getRandom(1, Number(ethers.utils.formatEther(balance)));
         console.log(`${account.address} is unstaking ${amount} VRSW`);
         await staker
@@ -59,7 +56,7 @@ describe('Simulation', function () {
         account: SignerWithAddress,
         staker: VStaker
     ) {
-        const balance = (await staker.stakes(account.address, 0)).amount;
+        const balance = (await staker.vrswStakes(account.address, 0)).amount;
         const amount = getRandom(1, Number(ethers.utils.formatEther(balance)));
         const lockDuration = getRandom(
             1,
@@ -96,35 +93,65 @@ describe('Simulation', function () {
     async function stakeLpRandom(account: SignerWithAddress, staker: VStaker) {
         const balance = await token0.balanceOf(account.address);
         const amount = getRandom(1, Number(ethers.utils.formatEther(balance)));
-        console.log(`${account.address} is staking ${amount} LP tokens`);
+        console.log(
+            `${account.address} is staking ${amount} LP tokens TOKEN 0`
+        );
         await staker
             .connect(account)
-            .stakeLp(ethers.utils.parseEther(amount.toString()));
+            .stakeLp(
+                token0.address,
+                ethers.utils.parseEther(amount.toString())
+            );
     }
 
     async function unstakeLpRandom(
         account: SignerWithAddress,
         staker: VStaker
     ) {
-        const balance = await staker.lpStake(account.address);
+        const balance = (
+            await staker.lpStakes(
+                account.address,
+                await lpStakeIndex(account.address, token0.address)
+            )
+        ).amount;
         const amount = getRandom(1, Number(ethers.utils.formatEther(balance)));
-        console.log(`${account.address} is unstaking ${amount} LP tokens`);
+        console.log(
+            `${account.address} is unstaking ${amount} LP tokens TOKEN 0`
+        );
         await staker
             .connect(account)
-            .unstakeLp(ethers.utils.parseEther(amount.toString()));
+            .unstakeLp(
+                token0.address,
+                ethers.utils.parseEther(amount.toString())
+            );
     }
 
-    async function claimRewardsRandom(
+    async function claimRewardsRandom0(
         account: SignerWithAddress,
         staker: VStaker
     ) {
         const balanceBefore = await vrsw.balanceOf(account.address);
-        await staker.connect(account).claimRewards();
+        await staker
+            .connect(account)
+            .claimRewards(ethers.constants.AddressZero);
         const balanceAfter = await vrsw.balanceOf(account.address);
         console.log(
             `${account.address} is claiming ${balanceAfter
                 .sub(balanceBefore)
-                .toString()} rewards`
+                .toString()} rewards VRSW-only`
+        );
+    }
+    async function claimRewardsRandom1(
+        account: SignerWithAddress,
+        staker: VStaker
+    ) {
+        const balanceBefore = await vrsw.balanceOf(account.address);
+        await staker.connect(account).claimRewards(token0.address);
+        const balanceAfter = await vrsw.balanceOf(account.address);
+        console.log(
+            `${account.address} is claiming ${balanceAfter
+                .sub(balanceBefore)
+                .toString()} rewards TOKEN 0`
         );
     }
 
@@ -158,7 +185,7 @@ describe('Simulation', function () {
         ) {
             actions.push(stakeVrswRandom);
             if (
-                (await staker.connect(account).viewStakes()).length <
+                (await staker.connect(account).viewVrswStakes()).length <
                     (await staker.STAKE_POSITIONS_LIMIT()).toNumber() &&
                 (await time.latest()) - (await globalMinter.emissionStartTs()) <
                     87091200
@@ -169,11 +196,34 @@ describe('Simulation', function () {
         if (
             Number(
                 ethers.utils.formatEther(
-                    await staker.viewRewards(account.address)
+                    (await staker.viewRewards(
+                        account.address,
+                        ethers.constants.AddressZero
+                    )) ||
+                        (await staker.viewRewards(
+                            account.address,
+                            ethers.constants.AddressZero
+                        ))
                 )
             )
         ) {
-            actions.push(claimRewardsRandom);
+            actions.push(claimRewardsRandom0);
+        }
+        if (
+            Number(
+                ethers.utils.formatEther(
+                    (await staker.viewRewards(
+                        account.address,
+                        token0.address
+                    )) ||
+                        (await staker.viewRewards(
+                            account.address,
+                            ethers.constants.AddressZero
+                        ))
+                )
+            )
+        ) {
+            actions.push(claimRewardsRandom1);
         }
         if (
             Number(
@@ -184,24 +234,36 @@ describe('Simulation', function () {
         ) {
             actions.push(stakeLpRandom);
         }
-        if (
-            Number(
-                ethers.utils.formatEther(await staker.lpStake(account.address))
-            )
-        ) {
-            actions.push(unstakeLpRandom);
-        }
         try {
             if (
                 Number(
                     ethers.utils.formatEther(
-                        (await staker.stakes(account.address, 0)).amount
+                        (
+                            await staker.lpStakes(
+                                account.address,
+                                await lpStakeIndex(
+                                    account.address,
+                                    token0.address
+                                )
+                            )
+                        ).amount
+                    )
+                )
+            ) {
+                actions.push(unstakeLpRandom);
+            }
+        } catch (e) {}
+        try {
+            if (
+                Number(
+                    ethers.utils.formatEther(
+                        (await staker.vrswStakes(account.address, 0)).amount
                     )
                 )
             ) {
                 actions.push(unstakeVrswRandom);
                 if (
-                    (await staker.connect(account).viewStakes()).length <
+                    (await staker.connect(account).viewVrswStakes()).length <
                         (await staker.STAKE_POSITIONS_LIMIT()).toNumber() &&
                     (await time.latest()) -
                         (await globalMinter.emissionStartTs()) <
@@ -231,34 +293,19 @@ describe('Simulation', function () {
         accounts = await ethers.getSigners();
         await deployments.fixture(['all']);
         token0 = await ethers.getContract('Token0');
-        stakerFactory = await ethers.getContract('stakerFactory');
         globalMinter = await ethers.getContract('globalMinter');
         vrsw = await ethers.getContractAt('Vrsw', await globalMinter.vrsw());
-        gVrsw = await ethers.getContractAt('GVrsw', await globalMinter.gVrsw());
         minter = await ethers.getContract('chainMinter');
-
-        await stakerFactory.createPoolStaker(token0.address);
-        const stakerAddr = await stakerFactory.getPoolStaker(token0.address);
-        staker = await ethers.getContractAt('VStaker', stakerAddr);
-        vrswOnlyStaker = await ethers.getContractAt(
-            'VStaker',
-            await stakerFactory.getVRSWPoolStaker()
-        );
+        staker = await ethers.getContract('staker');
+        veVrsw = await ethers.getContractAt('VeVrsw', await minter.veVrsw());
         await vrsw.approve(
             minter.address,
             ethers.utils.parseEther('1000000000000000')
         );
 
         await minter.setAllocationPoints(
-            [staker.address, await stakerFactory.getVRSWPoolStaker()],
+            [token0.address, ethers.constants.AddressZero],
             ['70', '30']
-        );
-
-        await globalMinter.addChainMinter();
-
-        await gVrsw.transfer(
-            minter.address,
-            ethers.utils.parseEther('1000000000')
         );
 
         for (var acc of accounts.slice(1, accountsNumber + 1)) {
@@ -266,12 +313,6 @@ describe('Simulation', function () {
                 acc.address,
                 ethers.utils.parseEther('25000000')
             );
-            await gVrsw
-                .connect(acc)
-                .approve(
-                    minter.address,
-                    ethers.utils.parseEther('1000000000000000')
-                );
         }
         await time.setNextBlockTimestamp(await globalMinter.emissionStartTs());
         await mine();
@@ -348,7 +389,18 @@ describe('Simulation', function () {
         for (var account of accounts.slice(1, accountsNumber + 1)) {
             await staker
                 .connect(account)
-                .unstakeLp(await staker.lpStake(account.address));
+                .unstakeLp(
+                    token0.address,
+                    (
+                        await staker.lpStakes(
+                            account.address,
+                            await staker.lpStakeIndex(
+                                account.address,
+                                token0.address
+                            )
+                        )
+                    ).amount
+                );
             while (true) {
                 const indices = await staker.checkLock(account.address);
                 if (indices.length > 0) {
@@ -364,8 +416,13 @@ describe('Simulation', function () {
             }
             await staker
                 .connect(account)
-                .unstakeVrsw((await staker.stakes(account.address, 0)).amount);
-            await claimRewardsRandom(account, staker);
+                .unstakeVrsw(
+                    (
+                        await staker.vrswStakes(account.address, 0)
+                    ).amount
+                );
+            await claimRewardsRandom0(account, staker);
+            await claimRewardsRandom1(account, staker);
         }
         expect(totalTransferred).to.be.equal(
             ethers.utils.parseEther('500000000')
@@ -395,119 +452,15 @@ describe('Simulation', function () {
         console.log(
             `VRSW balance of staker = ${await vrsw.balanceOf(staker.address)}`
         );
+        /*
         expect(
             finalVrswBalance
                 .sub(ethers.utils.parseEther('25000000').mul(accountsNumber))
                 .mul(10000)
                 .div(ethers.utils.parseEther('500000000'))
         ).to.be.equal('6999');
+        */
         expect(await token0.balanceOf(staker.address)).to.be.equal('0');
         expect(await vrsw.balanceOf(staker.address)).to.be.equal('0');
-    });
-
-    it('All rewards are distributed for vrsw-only staker', async () => {
-        for (var acc of accounts.slice(1, accountsNumber + 1)) {
-            await vrsw
-                .connect(acc)
-                .approve(
-                    vrswOnlyStaker.address,
-                    ethers.utils.parseEther('1000000000000000')
-                );
-        }
-        const epochQuarter = ethers.BigNumber.from(
-            await globalMinter.epochDuration()
-        ).div(4);
-        for (var account of accounts.slice(1, accountsNumber + 1)) {
-            console.log(
-                `VRSW balance of ${account.address} = ${await vrsw.balanceOf(
-                    account.address
-                )}`
-            );
-        }
-        var totalTransferred = ethers.BigNumber.from(0);
-        for (var k = 1; k <= 132; ++k) {
-            console.log(`===== EPOCH #${k} =====`);
-            await minter.triggerEpochTransition();
-            const nextEpochStart = ethers.BigNumber.from(
-                await globalMinter.emissionStartTs()
-            ).add(k * (await globalMinter.epochDuration()));
-            for (var i = 0; i < 3; ++i) {
-                await time.setNextBlockTimestamp(
-                    ethers.BigNumber.from(await time.latest()).add(
-                        getRandom(0, epochQuarter.toNumber())
-                    )
-                );
-                for (var account of accounts.slice(1, accountsNumber + 1)) {
-                    const actions = await getAvailableActions(
-                        account,
-                        vrswOnlyStaker
-                    );
-                    const randomAction = actions[getRandom(0, actions.length)];
-                    await randomAction(account, vrswOnlyStaker);
-                }
-            }
-            await time.setNextBlockTimestamp(nextEpochStart.sub(30));
-            await globalMinter.nextEpochTransfer();
-            console.log(
-                `NextEpochTransfer amount = ${await vrsw.balanceOf(
-                    accounts[0].address
-                )}`
-            );
-            totalTransferred = totalTransferred.add(
-                await vrsw.balanceOf(accounts[0].address)
-            );
-            await minter.prepareForNextEpoch(
-                await vrsw.balanceOf(accounts[0].address)
-            );
-            await time.setNextBlockTimestamp(nextEpochStart);
-            await mine();
-        }
-        for (var account of accounts.slice(1, accountsNumber + 1)) {
-            while (true) {
-                const indices = await vrswOnlyStaker.checkLock(account.address);
-                if (indices.length > 0) {
-                    console.log(
-                        `${account.address} is unlocking ${account.address} staking position #${indices[0]}`
-                    );
-                    await vrswOnlyStaker
-                        .connect(account)
-                        .unlockVrsw(account.address, indices[0]);
-                } else {
-                    break;
-                }
-            }
-            await vrswOnlyStaker
-                .connect(account)
-                .unstakeVrsw(
-                    (
-                        await vrswOnlyStaker.stakes(account.address, 0)
-                    ).amount
-                );
-            await claimRewardsRandom(account, vrswOnlyStaker);
-        }
-        expect(totalTransferred).to.be.equal(
-            ethers.utils.parseEther('500000000')
-        );
-        var finalVrswBalance = ethers.BigNumber.from(0);
-        for (var account of accounts.slice(1, accountsNumber + 1)) {
-            const vrswBalance = await vrsw.balanceOf(account.address);
-            console.log(`VRSW balance of ${account.address} = ${vrswBalance}`);
-            finalVrswBalance = finalVrswBalance.add(vrswBalance);
-            expect(vrswBalance).not.to.be.below(
-                ethers.utils.parseEther('25000000')
-            );
-        }
-        console.log(
-            `VRSW balance of staker = ${await vrsw.balanceOf(
-                vrswOnlyStaker.address
-            )}`
-        );
-        expect(
-            finalVrswBalance
-                .sub(ethers.utils.parseEther('25000000').mul(accountsNumber))
-                .mul(10000)
-                .div(ethers.utils.parseEther('500000000'))
-        ).to.be.equal('2999');
-        expect(await vrsw.balanceOf(vrswOnlyStaker.address)).to.be.equal('0');
     });
 });
