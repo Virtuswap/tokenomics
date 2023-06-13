@@ -184,4 +184,18 @@ interface IVStaker {
      * @param position The position of the stake to unlock.
      */
     function unlockVrsw(address who, uint256 position) external;
+
+    /**
+     * @notice Manually triggers state update before a change for specified wallets
+     * @dev Should be used in very rare cases (for example, changing global tokenomics params)
+     * @param wallets The addresses of the users for whom state update is triggered.
+     */
+    function triggerStateUpdateBefore(address[] calldata wallets) external;
+
+    /**
+     * @notice Manually triggers state update after a change for specified wallets
+     * @dev Should be used in very rare cases (for example, changing global tokenomics params)
+     * @param wallets The addresses of the users for whom state update is triggered.
+     */
+    function triggerStateUpdateAfter(address[] calldata wallets) external;
 }

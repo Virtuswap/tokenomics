@@ -400,6 +400,7 @@ contract VStaker is IVStaker {
         _vrswStakes = vrswStakes[msg.sender];
     }
 
+    /// @inheritdoc IVStaker
     function viewLpStakes()
         external
         view
@@ -407,6 +408,24 @@ contract VStaker is IVStaker {
         returns (LpStake[] memory _lpStakes)
     {
         _lpStakes = lpStakes[msg.sender];
+    }
+
+    /// @inheritdoc IVStaker
+    function triggerStateUpdateBefore(
+        address[] calldata wallets
+    ) public override {
+        for (uint i = 0; i < wallets.length; ++i) {
+            _updateEveryStateBefore(wallets[i]);
+        }
+    }
+
+    /// @inheritdoc IVStaker
+    function triggerStateUpdateAfter(
+        address[] calldata wallets
+    ) public override {
+        for (uint i = 0; i < wallets.length; ++i) {
+            _updateEveryStateAfter(wallets[i]);
+        }
     }
 
     /// @inheritdoc IVStaker
