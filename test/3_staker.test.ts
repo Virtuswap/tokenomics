@@ -8,6 +8,8 @@ import {
     VChainMinter,
     VGlobalMinter,
     Token0,
+    Token1,
+    Token2,
 } from '../typechain-types';
 import { time, mine } from '@nomicfoundation/hardhat-network-helpers';
 
@@ -15,6 +17,8 @@ describe('vStaker', function () {
     let vrsw: Vrsw;
     let veVrsw: VeVrsw;
     let token0: Token0;
+    let token1: Token1;
+    let token2: Token2;
     let staker: VStaker;
     let accounts: SignerWithAddress[];
     let minter: VChainMinter;
@@ -26,6 +30,8 @@ describe('vStaker', function () {
         await deployments.fixture(['all']);
         staker = await ethers.getContract('staker');
         token0 = await ethers.getContract('Token0');
+        token1 = await ethers.getContract('Token1');
+        token2 = await ethers.getContract('Token2');
         minter = await ethers.getContract('chainMinter');
         globalMinter = await ethers.getContract('globalMinter');
         vrsw = await ethers.getContractAt('Vrsw', await minter.vrsw());
@@ -135,7 +141,25 @@ describe('vStaker', function () {
             accounts[0].address
         );
         const contractBalanceBefore = await token0.balanceOf(staker.address);
+        expect((await staker.connect(accounts[0]).viewLpStakes()).length === 0);
         await staker.stakeLp(token0.address, amount);
+        expect((await staker.connect(accounts[0]).viewLpStakes()).length === 2);
+        expect(
+            (await staker.connect(accounts[0]).viewLpStakes())[0].amount ===
+                ethers.BigNumber.from('1')
+        );
+        expect(
+            (await staker.connect(accounts[0]).viewLpStakes())[0].lpToken ===
+                ethers.constants.AddressZero
+        );
+        expect(
+            (await staker.connect(accounts[0]).viewLpStakes())[1].amount ===
+                amount
+        );
+        expect(
+            (await staker.connect(accounts[0]).viewLpStakes())[1].lpToken ===
+                token0.address
+        );
         const accountBalanceAfter = await token0.balanceOf(accounts[0].address);
         const contractBalanceAfter = await token0.balanceOf(staker.address);
         expect(accountBalanceAfter).to.be.equal(
@@ -159,6 +183,13 @@ describe('vStaker', function () {
     it('stakeLp fails when zero amount', async () => {
         await expect(staker.stakeLp(token0.address, '0')).to.be.revertedWith(
             'insufficient amount'
+        );
+    });
+
+    it('stakeLp fails when invalid lp token', async () => {
+        const amount = '1';
+        await expect(staker.stakeLp(token2.address, amount)).to.be.revertedWith(
+            'invalid lp token'
         );
     });
 
@@ -201,6 +232,20 @@ describe('vStaker', function () {
         await expect(
             staker.unstakeLp(token0.address, amount.add('1'))
         ).to.be.revertedWith('not enough tokens');
+    });
+
+    it('unstakeLp fails when no such stake exists', async () => {
+        const amount = '1';
+        await expect(
+            staker.unstakeLp(token1.address, amount)
+        ).to.be.revertedWith('no such stake');
+    });
+
+    it('unstakeLp fails when invalid lp token', async () => {
+        const amount = '1';
+        await expect(
+            staker.unstakeLp(token2.address, amount)
+        ).to.be.revertedWith('invalid lp token');
     });
 
     it('claimRewards works', async () => {
@@ -565,6 +610,12 @@ describe('vStaker', function () {
         );
     });
 
+    it('unlockVrsw fails if position is invalid', async () => {
+        await expect(
+            staker.unlockVrsw(accounts[0].address, 10)
+        ).to.revertedWith('invalid position');
+    });
+
     it('unlockVrsw fails if zero address', async () => {
         await expect(
             staker.unlockVrsw(ethers.constants.AddressZero, 1)
@@ -667,6 +718,110 @@ describe('vStaker', function () {
         expect(await staker.totalMu(token0.address)).to.equal(totalMuBefore);
         expect(await staker.totalVrswAvailable(token0.address)).to.be.above(
             totalVrswBefore
+        );
+    });
+});
+
+describe('veVRSW', function () {
+    let vrsw: Vrsw;
+    let veVrsw: VeVrsw;
+    let token0: Token0;
+    let token1: Token1;
+    let token2: Token2;
+    let staker: VStaker;
+    let accounts: SignerWithAddress[];
+    let minter: VChainMinter;
+    let globalMinter: VGlobalMinter;
+
+    beforeEach(async () => {
+        // init
+        accounts = await ethers.getSigners();
+        await deployments.fixture(['all']);
+        staker = await ethers.getContract('staker');
+        token0 = await ethers.getContract('Token0');
+        token1 = await ethers.getContract('Token1');
+        token2 = await ethers.getContract('Token2');
+        minter = await ethers.getContract('chainMinter');
+        globalMinter = await ethers.getContract('globalMinter');
+        vrsw = await ethers.getContractAt('Vrsw', await minter.vrsw());
+        veVrsw = await ethers.getContractAt('VeVrsw', await minter.veVrsw());
+
+        // approve
+        await token0.approve(staker.address, ethers.utils.parseEther('1000'));
+        await vrsw.approve(staker.address, ethers.utils.parseEther('1000'));
+        await vrsw.approve(minter.address, ethers.utils.parseEther('10000000'));
+
+        // set allocation points for new staker and default staker
+        await minter.setAllocationPoints(
+            [token0.address, ethers.constants.AddressZero],
+            ['70', '30']
+        );
+
+        // get tokens for the next epoch
+        await globalMinter.nextEpochTransfer();
+        // transfer tokens for the next epoch to the chain minter
+        await minter.prepareForNextEpoch(
+            await vrsw.balanceOf(accounts[0].address)
+        );
+        // some functions should fail when they're called before emission start timestamp
+        await expect(
+            staker.stakeVrsw(ethers.utils.parseEther('10'))
+        ).to.revertedWith('too early');
+        await expect(
+            staker.stakeLp(token0.address, ethers.utils.parseEther('10'))
+        ).to.revertedWith('too early');
+        await expect(staker.claimRewards(token0.address)).to.revertedWith(
+            'too early'
+        );
+        await expect(
+            staker.unstakeLp(token0.address, ethers.utils.parseEther('10'))
+        ).to.revertedWith('too early');
+        await expect(
+            staker.unstakeVrsw(ethers.utils.parseEther('10'))
+        ).to.revertedWith('too early');
+        await expect(
+            staker.lockVrsw(ethers.utils.parseEther('10'), '1')
+        ).to.revertedWith('too early');
+        await expect(
+            staker.lockStakedVrsw(ethers.utils.parseEther('10'), '1')
+        ).to.revertedWith('too early');
+        await expect(
+            staker.unlockVrsw(accounts[0].address, '1')
+        ).to.revertedWith('too early');
+
+        // skip time to emissionStart
+        await time.setNextBlockTimestamp(
+            ethers.BigNumber.from(await globalMinter.emissionStartTs()).add(60)
+        );
+
+        await minter.triggerEpochTransition();
+
+        // get vrsw tokens for testing
+        await globalMinter.arbitraryTransfer(
+            accounts[0].address,
+            ethers.utils.parseEther('1000')
+        );
+        await globalMinter.arbitraryTransfer(
+            accounts[1].address,
+            ethers.utils.parseEther('1000')
+        );
+        const amount = ethers.utils.parseEther('100');
+        await staker.stakeVrsw(amount);
+    });
+
+    it('veVRSW decimals is 18', async () => {
+        expect(await veVrsw.decimals()).to.be.equal(18);
+    });
+
+    it('veVRSW mint is allowed only by minter', async () => {
+        await expect(veVrsw.mint(accounts[1].address, '1')).to.be.revertedWith(
+            'veVRSW: only minter'
+        );
+    });
+
+    it('veVRSW burn is allowed only by minter', async () => {
+        await expect(veVrsw.burn(accounts[1].address, '1')).to.be.revertedWith(
+            'veVRSW: only minter'
         );
     });
 });

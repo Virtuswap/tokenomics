@@ -17,6 +17,6 @@ contract Token2 is ERC20 {
     }
 
     function getTokens() external returns (address token0, address token1) {
-        return (address(this), address(this));
+        return (address(0), address(this));
     }
 }

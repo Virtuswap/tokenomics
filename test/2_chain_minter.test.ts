@@ -9,7 +9,6 @@ import {
     VStaker,
     Token0,
     Token1,
-    Token2,
 } from '../typechain-types';
 import { time } from '@nomicfoundation/hardhat-network-helpers';
 
@@ -263,7 +262,6 @@ describe('vChainMinter: allocation points', function () {
     let staker: VStaker;
     let token0: Token0;
     let token1: Token1;
-    let token2: Token2;
     let minter: VChainMinter;
     let vrsw: Vrsw;
     let veVrsw: VeVrsw;
@@ -282,10 +280,9 @@ describe('vChainMinter: allocation points', function () {
         globalMinter = await ethers.getContract('globalMinter');
         token0 = await ethers.getContract('Token0');
         token1 = await ethers.getContract('Token1');
-        token2 = await ethers.getContract('Token2');
         staker1Addr = token0.address;
         staker2Addr = token1.address;
-        staker3Addr = token2.address;
+        staker3Addr = ethers.constants.AddressZero;
 
         vrsw = await ethers.getContractAt('Vrsw', await minter.vrsw());
         veVrsw = await ethers.getContractAt('VeVrsw', await minter.veVrsw());

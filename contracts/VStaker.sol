@@ -317,8 +317,9 @@ contract VStaker is IVStaker {
         address who,
         uint256 position
     ) external override notBefore(emissionStartTs) {
-        require(position > 0, "invalid position");
+        uint userStakesNumber = vrswStakes[who].length;
         require(who != address(0), "zero address");
+        require(position > 0 && position < userStakesNumber, "invalid position");
 
         VrswStake memory userStake = vrswStakes[who][position];
         require(
@@ -329,7 +330,7 @@ contract VStaker is IVStaker {
         uint256 vrswToUnlock = uint256(unwrap(userStake.amount));
 
         _updateEveryStateBefore(who);
-        vrswStakes[who][position] = vrswStakes[who][vrswStakes[who].length - 1];
+        vrswStakes[who][position] = vrswStakes[who][userStakesNumber - 1];
         vrswStakes[who].pop();
         _stakeUnlocked(who, vrswToUnlock);
         _updateEveryStateAfter(who);
