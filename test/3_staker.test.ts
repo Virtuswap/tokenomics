@@ -10,6 +10,7 @@ import {
     Token0,
     Token1,
     Token2,
+    VTokenomicsParams,
 } from '../typechain-types';
 import { time, mine } from '@nomicfoundation/hardhat-network-helpers';
 
@@ -23,6 +24,7 @@ describe('vStaker', function () {
     let accounts: SignerWithAddress[];
     let minter: VChainMinter;
     let globalMinter: VGlobalMinter;
+    let tokenomicsParams: VTokenomicsParams;
 
     before(async () => {
         // init
@@ -33,12 +35,16 @@ describe('vStaker', function () {
         token1 = await ethers.getContract('Token1');
         token2 = await ethers.getContract('Token2');
         minter = await ethers.getContract('chainMinter');
+        tokenomicsParams = await ethers.getContract('tokenomicsParams');
         globalMinter = await ethers.getContract('globalMinter');
         vrsw = await ethers.getContractAt('Vrsw', await minter.vrsw());
         veVrsw = await ethers.getContractAt('VeVrsw', await minter.veVrsw());
 
         // approve
         await token0.approve(staker.address, ethers.utils.parseEther('1000'));
+        await vrsw
+            .connect(accounts[1])
+            .approve(staker.address, ethers.utils.parseEther('1000'));
         await vrsw.approve(staker.address, ethers.utils.parseEther('1000'));
         await vrsw.approve(minter.address, ethers.utils.parseEther('10000000'));
 
@@ -717,6 +723,108 @@ describe('vStaker', function () {
         );
         expect(await staker.totalMu(token0.address)).to.equal(totalMuBefore);
         expect(await staker.totalVrswAvailable(token0.address)).to.be.above(
+            totalVrswBefore
+        );
+    });
+
+    it('triggerStateUpdateBefore works', async () => {
+        await staker.connect(accounts[1]).stakeVrsw('100000000000');
+        const muBefore0 = await staker.mu(accounts[0].address, token0.address);
+        const muBefore1 = await staker.mu(
+            accounts[1].address,
+            ethers.constants.AddressZero
+        );
+        const totalMuBefore = await staker.totalMu(token0.address);
+        const totalVrswBefore = await staker.totalVrswAvailable(token0.address);
+        const rewardsBefore0 = await staker.viewRewards(
+            accounts[0].address,
+            token0.address
+        );
+        const rewardsBefore1 = await staker.viewRewards(
+            accounts[1].address,
+            token0.address
+        );
+        await time.setNextBlockTimestamp((await time.latest()) + 10);
+
+        await staker.triggerStateUpdateBefore([
+            accounts[0].address,
+            accounts[1].address,
+        ]);
+        const rewardsAfter0 = await staker.viewRewards(
+            accounts[0].address,
+            token0.address
+        );
+
+        const rewardsAfter1 = await staker.viewRewards(
+            accounts[0].address,
+            token0.address
+        );
+
+        expect(rewardsAfter0).to.be.above(rewardsBefore0);
+        expect(rewardsAfter1).to.be.above(rewardsBefore1);
+        expect(
+            await staker.mu(accounts[0].address, token0.address)
+        ).to.be.equal(muBefore0);
+        expect(
+            await staker.mu(accounts[1].address, ethers.constants.AddressZero)
+        ).to.be.equal(muBefore1);
+        expect(await staker.totalMu(token0.address)).to.be.equal(totalMuBefore);
+        expect(await staker.totalVrswAvailable(token0.address)).to.be.above(
+            totalVrswBefore
+        );
+    });
+
+    it('triggerStateUpdateAfter works', async () => {
+        await tokenomicsParams.updateParams(
+            '0',
+            '1000000000000000000',
+            '0',
+            '0',
+            '0'
+        );
+        const muBefore0 = await staker.mu(accounts[0].address, token0.address);
+        const muBefore1 = await staker.mu(
+            accounts[1].address,
+            ethers.constants.AddressZero
+        );
+        const totalMuBefore = await staker.totalMu(token0.address);
+        const totalVrswBefore = await staker.totalVrswAvailable(token0.address);
+        const rewardsBefore0 = await staker.viewRewards(
+            accounts[0].address,
+            token0.address
+        );
+        const rewardsBefore1 = await staker.viewRewards(
+            accounts[1].address,
+            token0.address
+        );
+        await time.setNextBlockTimestamp((await time.latest()) + 10);
+
+        await staker.triggerStateUpdateAfter([
+            accounts[0].address,
+            accounts[1].address,
+        ]);
+        const rewardsAfter0 = await staker.viewRewards(
+            accounts[0].address,
+            token0.address
+        );
+
+        const rewardsAfter1 = await staker.viewRewards(
+            accounts[0].address,
+            token0.address
+        );
+
+        expect(rewardsAfter0).to.be.above(rewardsBefore0);
+        expect(rewardsAfter1).to.be.above(rewardsBefore1);
+        expect(
+            await staker.mu(accounts[0].address, token0.address)
+        ).to.be.lessThan(muBefore0);
+        expect(
+            await staker.mu(accounts[1].address, ethers.constants.AddressZero)
+        ).to.be.lessThan(muBefore1);
+        expect(await staker.totalMu(token0.address)).to.be.lessThan(
+            totalMuBefore
+        );
+        expect(await staker.totalVrswAvailable(token0.address)).to.be.equal(
             totalVrswBefore
         );
     });
