@@ -22,7 +22,7 @@ contract VStaker is IVStaker {
      * @dev The amount of LP tokens staked by each user.
      */
     mapping(address => LpStake[]) public lpStakes;
-    mapping(address => mapping(address => uint)) private lpStakeIndex;
+    mapping(address => mapping(address => uint)) public lpStakeIndex;
 
     /**
      * @dev The mu value of each user's stake. You can learn more about mu and
@@ -390,7 +390,9 @@ contract VStaker is IVStaker {
         _lpStakes = lpStakes[msg.sender];
     }
 
-    function isLpTokenValid(address lpToken) public view returns (bool) {
+    function isLpTokenValid(
+        address lpToken
+    ) public view override returns (bool) {
         (address token0, address token1) = IvPair(lpToken).getTokens();
         return IvPairFactory(vPairFactory).pairs(token0, token1) == lpToken;
     }

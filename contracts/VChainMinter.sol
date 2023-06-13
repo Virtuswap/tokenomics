@@ -158,7 +158,8 @@ contract VChainMinter is IVChainMinter, Ownable {
         StakerInfo memory stakerInfo;
         for (uint256 i = 0; i < _lpTokens.length; ++i) {
             require(
-                _staker.isLpTokenValid(_lpTokens[i]),
+                _lpTokens[i] == address(0) ||
+                    _staker.isLpTokenValid(_lpTokens[i]),
                 "one of lp tokens is not valid"
             );
 
