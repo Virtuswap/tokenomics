@@ -596,7 +596,7 @@ contract VStaker is IVStaker {
     {
         _totalVrswAvailable = sd(
             int256(
-                uint256(IVChainMinter(minter).calculateTokensForStaker(lpToken))
+                uint256(IVChainMinter(minter).calculateTokensForPool(lpToken))
             )
         );
         _rewardsCoefficientGlobal = unwrap(totalMu[lpToken]) == 0

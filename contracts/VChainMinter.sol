@@ -236,7 +236,7 @@ contract VChainMinter is IVChainMinter, Ownable {
     }
 
     /// @inheritdoc IVChainMinter
-    function calculateTokensForStaker(
+    function calculateTokensForPool(
         address lpToken
     ) external view override returns (uint256) {
         uint256 _tokensAvailable = block.timestamp >=

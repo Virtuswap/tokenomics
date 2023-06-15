@@ -129,11 +129,11 @@ interface IVChainMinter {
     function triggerEpochTransition() external;
 
     /**
-     * @notice Calculates the amount of tokens an lpToken staker is eligible to receive from VRSW algorithmic emission.
+     * @notice Calculates the amount of tokens an lpToken pool is eligible to receive from VRSW algorithmic emission.
      * @param lpToken The address of the staker lpToken.
-     * @return The amount of tokens the staker is eligible to receive.
+     * @return The amount of tokens the pool is eligible to receive.
      */
-    function calculateTokensForStaker(
+    function calculateTokensForPool(
         address lpToken
     ) external view returns (uint256);
 }
