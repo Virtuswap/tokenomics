@@ -594,25 +594,29 @@ contract VStaker is IVStaker {
             SD59x18 _senderRewards
         )
     {
-        _totalVrswAvailable = sd(
-            int256(
-                uint256(IVChainMinter(minter).calculateTokensForPool(lpToken))
-            )
-        );
-        _rewardsCoefficientGlobal = unwrap(totalMu[lpToken]) == 0
-            ? ZERO
-            : rewardsCoefficientGlobal[lpToken].add(
+        if (unwrap(totalMu[lpToken]) != 0) {
+            _totalVrswAvailable = sd(
+                int256(
+                    uint256(
+                        IVChainMinter(minter).calculateTokensForPool(lpToken)
+                    )
+                )
+            );
+            _rewardsCoefficientGlobal = rewardsCoefficientGlobal[lpToken].add(
                 (_totalVrswAvailable.sub(totalVrswAvailable[lpToken])).div(
                     totalMu[lpToken]
                 )
             );
-        _senderRewardsCoefficient = _rewardsCoefficientGlobal;
-        // you can learn more about the formula in Virtuswap Tokenomics Whitepaper
-        _senderRewards = rewards[who][lpToken].add(
-            mu[who][lpToken].mul(
-                _rewardsCoefficientGlobal.sub(rewardsCoefficient[who][lpToken])
-            )
-        );
+            _senderRewardsCoefficient = _rewardsCoefficientGlobal;
+            // you can learn more about the formula in Virtuswap Tokenomics Whitepaper
+            _senderRewards = rewards[who][lpToken].add(
+                mu[who][lpToken].mul(
+                    _rewardsCoefficientGlobal.sub(
+                        rewardsCoefficient[who][lpToken]
+                    )
+                )
+            );
+        }
     }
 
     /**

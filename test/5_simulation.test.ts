@@ -452,6 +452,12 @@ describe('Simulation', function () {
         console.log(
             `VRSW balance of staker = ${await vrsw.balanceOf(staker.address)}`
         );
+        console.log(
+            `LP balance of minter = ${await token0.balanceOf(minter.address)}`
+        );
+        console.log(
+            `VRSW balance of minter = ${await vrsw.balanceOf(minter.address)}`
+        );
         /*
         expect(
             finalVrswBalance
@@ -460,6 +466,9 @@ describe('Simulation', function () {
                 .div(ethers.utils.parseEther('500000000'))
         ).to.be.equal('6999');
         */
+        expect(await token0.balanceOf(minter.address)).to.be.equal('0');
+        // dust
+        expect(await vrsw.balanceOf(minter.address)).to.be.lessThan(ethers.utils.parseEther('1'));
         expect(await token0.balanceOf(staker.address)).to.be.equal('0');
         expect(await vrsw.balanceOf(staker.address)).to.be.equal('0');
     });

@@ -130,7 +130,7 @@ describe('vStaker', function () {
             muBefore
         );
         expect(await staker.totalMu(token0.address)).to.equal(totalMuBefore);
-        expect(await staker.totalVrswAvailable(token0.address)).to.be.above(
+        expect(await staker.totalVrswAvailable(token0.address)).to.be.equal(
             totalVrswBefore
         );
     });
@@ -181,7 +181,7 @@ describe('vStaker', function () {
             amount
         );
         expect(await staker.totalMu(token0.address)).to.equal(amount);
-        expect(await staker.totalVrswAvailable(token0.address)).to.be.above(
+        expect(await staker.totalVrswAvailable(token0.address)).to.be.equal(
             '0'
         );
     });
