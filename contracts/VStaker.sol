@@ -132,10 +132,13 @@ contract VStaker is IVStaker {
         uint256 amount
     ) external override notBefore(emissionStartTs) positiveAmount(amount) {
         if (lpStakes[msg.sender].length == 0)
-            lpStakes[msg.sender].push(LpStake(address(0), UNIT));
+            lpStakes[msg.sender].push(LpStake(address(0), ZERO));
 
         _updateEveryStateBefore(msg.sender);
         _stakeUnlocked(msg.sender, amount);
+        lpStakes[msg.sender][0].amount = lpStakes[msg.sender][0].amount.add(
+            sd(int256(amount))
+        );
         _updateEveryStateAfter(msg.sender);
 
         SafeERC20.safeTransferFrom(
@@ -160,7 +163,7 @@ contract VStaker is IVStaker {
         validLpToken(lpToken)
     {
         if (lpStakes[msg.sender].length == 0)
-            lpStakes[msg.sender].push(LpStake(address(0), UNIT));
+            lpStakes[msg.sender].push(LpStake(address(0), ZERO));
 
         _updateStateBefore(msg.sender, lpToken);
         uint lpStakeIdx = lpStakeIndex[msg.sender][lpToken];
@@ -220,8 +223,12 @@ contract VStaker is IVStaker {
         SD59x18 currentAmount = lpStakes[msg.sender][lpStakeIdx].amount;
         require(lpStakeIdx != 0, "no such stake");
         require(amount <= uint256(unwrap(currentAmount)), "not enough tokens");
+
         _updateStateBefore(msg.sender, lpToken);
         SD59x18 newAmount = currentAmount.sub(sd(int256(amount)));
+        lpStakes[msg.sender][lpStakeIdx].amount = newAmount;
+        _updateStateAfter(msg.sender, lpToken);
+
         if (unwrap(newAmount) == 0) {
             lpStakes[msg.sender][lpStakeIdx] = lpStakes[msg.sender][
                 lpStakes[msg.sender].length - 1
@@ -231,10 +238,7 @@ contract VStaker is IVStaker {
             ] = lpStakeIdx;
             delete lpStakeIndex[msg.sender][lpToken];
             lpStakes[msg.sender].pop();
-        } else {
-            lpStakes[msg.sender][lpStakeIdx].amount = newAmount;
         }
-        _updateStateAfter(msg.sender, lpToken);
 
         SafeERC20.safeTransfer(IERC20(lpToken), msg.sender, amount);
 
@@ -254,6 +258,9 @@ contract VStaker is IVStaker {
 
         _updateEveryStateBefore(msg.sender);
         senderStakes[0].amount = senderStakes[0].amount.sub(sd(int256(amount)));
+        lpStakes[msg.sender][0].amount = lpStakes[msg.sender][0].amount.sub(
+            sd(int256(amount))
+        );
         _updateEveryStateAfter(msg.sender);
 
         SafeERC20.safeTransfer(IERC20(vrswToken), msg.sender, amount);
@@ -282,9 +289,12 @@ contract VStaker is IVStaker {
             senderStakes.push(VrswStake(0, 0, ZERO, ZERO));
         }
         if (lpStakes[msg.sender].length == 0)
-            lpStakes[msg.sender].push(LpStake(address(0), UNIT));
+            lpStakes[msg.sender].push(LpStake(address(0), ZERO));
 
         _updateEveryStateBefore(msg.sender);
+        lpStakes[msg.sender][0].amount = lpStakes[msg.sender][0].amount.add(
+            sd(int256(amount))
+        );
         _newStakePosition(amount, lockDuration);
         _updateEveryStateAfter(msg.sender);
 
