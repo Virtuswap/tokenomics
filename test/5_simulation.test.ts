@@ -26,6 +26,7 @@ describe('Simulation', function () {
         staker: VStaker
     ) {
         console.log(`${account.address} is doing nothing`);
+        await mine();
     }
 
     async function stakeVrswRandom(
@@ -384,7 +385,6 @@ describe('Simulation', function () {
                 await vrsw.balanceOf(accounts[0].address)
             );
             await time.setNextBlockTimestamp(nextEpochStart);
-            await mine();
         }
         for (var account of accounts.slice(1, accountsNumber + 1)) {
             await staker
@@ -468,7 +468,7 @@ describe('Simulation', function () {
         */
         expect(await token0.balanceOf(minter.address)).to.be.equal('0');
         // dust
-        expect(await vrsw.balanceOf(minter.address)).to.be.lessThan(ethers.utils.parseEther('1'));
+        expect(await vrsw.balanceOf(minter.address)).to.be.lessThan('10000000000000000');
         expect(await token0.balanceOf(staker.address)).to.be.equal('0');
         expect(await vrsw.balanceOf(staker.address)).to.be.equal('0');
     });
