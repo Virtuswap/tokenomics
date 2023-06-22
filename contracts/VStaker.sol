@@ -626,6 +626,18 @@ contract VStaker is IVStaker {
                     )
                 )
             );
+        } else {
+            (
+                _totalVrswAvailable,
+                _senderRewardsCoefficient,
+                _rewardsCoefficientGlobal,
+                _senderRewards
+            ) = (
+                totalVrswAvailable[lpToken],
+                rewardsCoefficient[who][lpToken],
+                rewardsCoefficientGlobal[lpToken],
+                rewards[who][lpToken]
+            );
         }
     }
 
