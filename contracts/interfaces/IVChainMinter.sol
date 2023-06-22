@@ -16,12 +16,12 @@ interface IVChainMinter {
     /**
      * @notice Emitted when rewards are transferred to an address.
      * @param to The address receiving the rewards.
-     * @param lpToken The address of lpToken for staking of which the rewards are transferred.
+     * @param pool The address of pool for staking in which the rewards are transferred.
      * @param amount The amount of rewards transferred.
      */
     event TransferRewards(
         address indexed to,
-        address indexed lpToken,
+        address indexed pool,
         uint256 amount
     );
 
@@ -51,21 +51,21 @@ interface IVChainMinter {
     function prepareForNextEpoch(uint256 nextBalance) external;
 
     /**
-     * @dev Sets the allocation points for a list of lpTokens stakers.
+     * @dev Sets the allocation points for a list of pools.
      *
      * This function allows the owner of the contract to set the allocation points
-     * for a list of lpTokens stakers, which determines their share of the total rewards
+     * for a list of pools, which determines their share of the total rewards
      * distributed by the contract. The total allocation points must be non-zero,
-     * and each lpToken must be registered in Virtuswap pairs factory.
+     * and each pool must be registered in Virtuswap pairs factory.
      *
-     * @param lpTokens The addresses of the stakers lpTokens to set the allocation points for.
+     * @param pools The addresses of the pools to set the allocation points for.
      * @param allocationPoints The allocation points to set for each staker.
      *
      * Requirements:
      * - The caller must be the owner of the contract.
      */
     function setAllocationPoints(
-        address[] calldata lpTokens,
+        address[] calldata pools,
         uint256[] calldata allocationPoints
     ) external;
 
@@ -97,11 +97,7 @@ interface IVChainMinter {
      * - The current timestamp must be later than the contract's emission start time.
      * - The amount to transfer must be greater than zero.
      */
-    function transferRewards(
-        address to,
-        address lpToken,
-        uint256 amount
-    ) external;
+    function transferRewards(address to, address pool, uint256 amount) external;
 
     /**
      * @notice Mint veVrsw tokens to the specified to address.
@@ -129,11 +125,11 @@ interface IVChainMinter {
     function triggerEpochTransition() external;
 
     /**
-     * @notice Calculates the amount of tokens an lpToken pool is eligible to receive from VRSW algorithmic emission.
-     * @param lpToken The address of the staker lpToken.
+     * @notice Calculates the amount of tokens a pool is eligible to receive from VRSW algorithmic emission.
+     * @param pool The address of the staker pool.
      * @return The amount of tokens the pool is eligible to receive.
      */
     function calculateTokensForPool(
-        address lpToken
+        address pool
     ) external view returns (uint256);
 }

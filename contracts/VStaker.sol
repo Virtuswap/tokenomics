@@ -109,8 +109,8 @@ contract VStaker is IVStaker {
         _;
     }
 
-    modifier validLpToken(address lpToken) {
-        require(isLpTokenValid(lpToken), "invalid lp token");
+    modifier validPool(address pool) {
+        require(isPoolValid(pool), "invalid lp token");
         _;
     }
 
@@ -160,7 +160,7 @@ contract VStaker is IVStaker {
         override
         notBefore(emissionStartTs)
         positiveAmount(amount)
-        validLpToken(lpToken)
+        validPool(lpToken)
     {
         if (lpStakes[msg.sender].length == 0)
             lpStakes[msg.sender].push(LpStake(address(0), ZERO));
@@ -217,7 +217,7 @@ contract VStaker is IVStaker {
         override
         notBefore(emissionStartTs)
         positiveAmount(amount)
-        validLpToken(lpToken)
+        validPool(lpToken)
     {
         uint lpStakeIdx = lpStakeIndex[msg.sender][lpToken];
         SD59x18 currentAmount = lpStakes[msg.sender][lpStakeIdx].amount;
@@ -439,11 +439,9 @@ contract VStaker is IVStaker {
     }
 
     /// @inheritdoc IVStaker
-    function isLpTokenValid(
-        address lpToken
-    ) public view override returns (bool) {
-        (address token0, address token1) = IvPair(lpToken).getTokens();
-        return IvPairFactory(vPairFactory).pairs(token0, token1) == lpToken;
+    function isPoolValid(address pool) public view override returns (bool) {
+        (address token0, address token1) = IvPair(pool).getTokens();
+        return IvPairFactory(vPairFactory).pairs(token0, token1) == pool;
     }
 
     /**

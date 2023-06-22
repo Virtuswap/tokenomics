@@ -26,12 +26,12 @@ interface IVStaker {
     /**
      * @notice Emitted when who claims amount of accrued rewards.
      * @param who Address of the account that claims the rewards.
-     * @param lpToken Address of LP token, for staking which the rewards are claimed.
+     * @param pool Address of LP token, for staking which the rewards are claimed.
      * @param amount Amount of rewards being claimed.
      */
     event RewardsClaimed(
         address indexed who,
-        address indexed lpToken,
+        address indexed pool,
         uint256 amount
     );
 
@@ -97,22 +97,22 @@ interface IVStaker {
     /**
 
      * @notice Allows a user to claim their accrued VRSW rewards. The user's accrued rewards are calculated using the
-     * @param lpToken Address of LP token.
+     * @param pool Address of pool.
      * _calculateAccruedRewards function. The rewards claimed are transferred
      * to the user's address using the transferRewards function of the IvMinter contract.
 */
-    function claimRewards(address lpToken) external;
+    function claimRewards(address pool) external;
 
     /**
      * @notice Returns the amount of VRSW rewards that a user has accrued but not yet claimed. The user's accrued rewards are
      * calculated using the _calculateAccruedRewards function.
      * @param who The address of the user to query for accrued rewards.
-     * @param lpToken Address of LP token.
+     * @param pool Address of pool.
      * @return rewards The amount of VRSW rewards that the user has accrued but not yet claimed.
      */
     function viewRewards(
         address who,
-        address lpToken
+        address pool
     ) external view returns (uint256 rewards);
 
     /**
@@ -133,11 +133,11 @@ interface IVStaker {
     function viewLpStakes() external view returns (LpStake[] memory lpStakes);
 
     /**
-     * @notice Checks if lpToken is a valid lp token registered in Virtuswap pairs factory
-     * @param lpToken Address of LP token.
-     * @return Whether lpToken is valid
+     * @notice Checks if pool is a valid pool registered in Virtuswap pairs factory
+     * @param pool Address of pool.
+     * @return Whether pool is valid
      */
-    function isLpTokenValid(address lpToken) external view returns (bool);
+    function isPoolValid(address pool) external view returns (bool);
 
     /**
      * @dev Allows the user to unstake LP tokens from the contract. The LP tokens are transferred back to the user's wallet.

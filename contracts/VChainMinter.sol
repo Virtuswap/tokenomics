@@ -146,10 +146,10 @@ contract VChainMinter is IVChainMinter, Ownable {
 
     /// @inheritdoc IVChainMinter
     function setAllocationPoints(
-        address[] calldata _lpTokens,
+        address[] calldata _pools,
         uint256[] calldata _allocationPoints
     ) external override onlyOwner {
-        require(_lpTokens.length == _allocationPoints.length, "lengths differ");
+        require(_pools.length == _allocationPoints.length, "lengths differ");
         if (block.timestamp >= startEpochTime + epochDuration)
             _epochTransition();
 
@@ -157,25 +157,24 @@ contract VChainMinter is IVChainMinter, Ownable {
         int256 _totalAllocationPoints = int256(totalAllocationPoints);
         IVStaker _staker = IVStaker(staker);
         StakerInfo memory stakerInfo;
-        for (uint256 i = 0; i < _lpTokens.length; ++i) {
+        for (uint256 i = 0; i < _pools.length; ++i) {
             require(
-                _lpTokens[i] == address(0) ||
-                    _staker.isLpTokenValid(_lpTokens[i]),
+                _pools[i] == address(0) || _staker.isPoolValid(_pools[i]),
                 "one of lp tokens is not valid"
             );
 
-            stakerInfo = stakers[_lpTokens[i]];
+            stakerInfo = stakers[_pools[i]];
             _updateStakerInfo(
                 stakerInfo,
-                allocationPoints[_lpTokens[i]],
+                allocationPoints[_pools[i]],
                 availableTokens
             );
-            stakers[_lpTokens[i]] = stakerInfo;
+            stakers[_pools[i]] = stakerInfo;
 
             _totalAllocationPoints +=
                 int256(_allocationPoints[i]) -
-                int256(allocationPoints[_lpTokens[i]]);
-            allocationPoints[_lpTokens[i]] = _allocationPoints[i];
+                int256(allocationPoints[_pools[i]]);
+            allocationPoints[_pools[i]] = _allocationPoints[i];
         }
         require(
             uint256(_totalAllocationPoints) <= ALLOCATION_POINTS_FACTOR,
@@ -187,7 +186,7 @@ contract VChainMinter is IVChainMinter, Ownable {
     /// @inheritdoc IVChainMinter
     function transferRewards(
         address to,
-        address lpToken,
+        address pool,
         uint256 amount
     ) external override {
         require(block.timestamp >= emissionStartTs, "too early");
@@ -195,16 +194,16 @@ contract VChainMinter is IVChainMinter, Ownable {
         if (block.timestamp >= startEpochTime + epochDuration)
             _epochTransition();
 
-        StakerInfo memory stakerInfo = stakers[lpToken];
+        StakerInfo memory stakerInfo = stakers[pool];
         _updateStakerInfo(
             stakerInfo,
-            allocationPoints[lpToken],
+            allocationPoints[pool],
             _availableTokens()
         );
 
-        stakers[lpToken] = stakerInfo;
+        stakers[pool] = stakerInfo;
         SafeERC20.safeTransfer(IERC20(vrsw), to, amount);
-        emit TransferRewards(to, lpToken, amount);
+        emit TransferRewards(to, pool, amount);
     }
 
     /// @inheritdoc IVChainMinter
@@ -237,18 +236,14 @@ contract VChainMinter is IVChainMinter, Ownable {
 
     /// @inheritdoc IVChainMinter
     function calculateTokensForPool(
-        address lpToken
+        address pool
     ) external view override returns (uint256) {
         uint256 _tokensAvailable = block.timestamp >=
             startEpochTime + epochDuration
             ? _availableTokensForNextEpoch()
             : _availableTokens();
-        StakerInfo memory stakerInfo = stakers[lpToken];
-        _updateStakerInfo(
-            stakerInfo,
-            allocationPoints[lpToken],
-            _tokensAvailable
-        );
+        StakerInfo memory stakerInfo = stakers[pool];
+        _updateStakerInfo(stakerInfo, allocationPoints[pool], _tokensAvailable);
         return stakerInfo.totalAllocated;
     }
 
