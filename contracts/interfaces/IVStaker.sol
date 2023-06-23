@@ -112,7 +112,8 @@ interface IVStaker {
      */
     function viewRewards(
         address who,
-        address pool
+        address pool,
+        address rewardToken
     ) external view returns (uint256 rewards);
 
     /**

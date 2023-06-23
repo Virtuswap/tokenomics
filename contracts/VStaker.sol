@@ -39,15 +39,17 @@ contract VStaker is IVStaker {
     /**
      * @dev Accrued rewards currently available for user to withdraw for staking
      * specified lpToken.
-     * [wallet][lpToken]
+     * [wallet][lpToken][rewardToken]
      */
-    mapping(address => mapping(address => SD59x18)) public rewards;
+    mapping(address => mapping(address => mapping(address => SD59x18)))
+        public rewards;
 
     /**
      * @dev The snapshot of rewardsCoefficintGlobal at the time of the last update.
-     * [wallet][lpToken]
+     * [wallet][lpToken][rewardToken]
      */
-    mapping(address => mapping(address => SD59x18)) public rewardsCoefficient;
+    mapping(address => mapping(address => mapping(address => SD59x18)))
+        public rewardsCoefficient;
 
     /**
      * @dev The VRSW stakes of each user.
@@ -65,16 +67,18 @@ contract VStaker is IVStaker {
      * @dev Coefficient needed to calculate accrued rewards. It's equal to:
      * SUM(vrswEmission(t_{i - 1}, t_{i}) / totalMu(t_i)), where t_i is the
      * timestamp when totalMu has changed.
-     * [lpToken]
+     * [lpToken][rewardToken]
      */
-    mapping(address => SD59x18) public rewardsCoefficientGlobal;
+    mapping(address => mapping(address => SD59x18))
+        public rewardsCoefficientGlobal;
 
     /**
      * @dev The total amount of VRSW tokens available for distribution as rewards
      * for staking specified lpToken.
-     * [lpToken]
+     * [lpToken][rewardToken]
      */
-    mapping(address => SD59x18) public totalVrswAvailable;
+    mapping(address => mapping(address => SD59x18))
+        public totalRewardTokensAvailable;
 
     // Virtuswap pair factory address
     address public immutable vPairFactory;
@@ -191,21 +195,26 @@ contract VStaker is IVStaker {
         address lpToken
     ) external override notBefore(emissionStartTs) {
         _updateStateBefore(msg.sender, lpToken);
-        uint256 amountToClaim = _calculateAccruedRewards(
-            msg.sender,
-            lpToken,
-            true
-        );
-        rewards[msg.sender][lpToken] = ZERO;
 
-        if (amountToClaim > 0) {
-            IVChainMinter(minter).transferRewards(
+        address[] memory rewardTokens = IVChainMinter(minter).getRewardTokens(
+            lpToken
+        );
+        uint[] memory amounts = new uint[](rewardTokens.length);
+        for (uint i = 0; i < rewardTokens.length; ++i) {
+            amounts[i] = _calculateAccruedRewards(
                 msg.sender,
                 lpToken,
-                amountToClaim
+                rewardTokens[i],
+                true
             );
+            rewards[msg.sender][lpToken][rewardTokens[i]] = ZERO;
         }
-        emit RewardsClaimed(msg.sender, lpToken, amountToClaim);
+        IVChainMinter(minter).transferRewards(
+            msg.sender,
+            lpToken,
+            rewardTokens,
+            amounts
+        );
     }
 
     /// @inheritdoc IVStaker
@@ -395,9 +404,10 @@ contract VStaker is IVStaker {
     /// @inheritdoc IVStaker
     function viewRewards(
         address who,
-        address lpToken
+        address lpToken,
+        address rewardToken
     ) external view override returns (uint256) {
-        return _calculateAccruedRewards(who, lpToken, false);
+        return _calculateAccruedRewards(who, lpToken, rewardToken, false);
     }
 
     /// @inheritdoc IVStaker
@@ -546,12 +556,17 @@ contract VStaker is IVStaker {
      * @param who The user's address
      */
     function _updateStateBefore(address who, address lpToken) private {
-        (
-            totalVrswAvailable[lpToken],
-            rewardsCoefficient[who][lpToken],
-            rewardsCoefficientGlobal[lpToken],
-            rewards[who][lpToken]
-        ) = _calculateStateBefore(who, lpToken);
+        address[] memory rewardTokens = IVChainMinter(minter).getRewardTokens(
+            lpToken
+        );
+        for (uint i = 0; i < rewardTokens.length; ++i) {
+            (
+                totalRewardTokensAvailable[lpToken][rewardTokens[i]],
+                rewardsCoefficient[who][lpToken][rewardTokens[i]],
+                rewardsCoefficientGlobal[lpToken][rewardTokens[i]],
+                rewards[who][lpToken][rewardTokens[i]]
+            ) = _calculateStateBefore(who, lpToken, rewardTokens[i]);
+        }
     }
 
     /**
@@ -576,11 +591,12 @@ contract VStaker is IVStaker {
     function _calculateAccruedRewards(
         address who,
         address lpToken,
+        address rewardToken,
         bool isStateChanged
     ) private view returns (uint256) {
         (, , , SD59x18 _senderRewards) = isStateChanged
-            ? (ZERO, ZERO, ZERO, rewards[who][lpToken])
-            : _calculateStateBefore(who, lpToken);
+            ? (ZERO, ZERO, ZERO, rewards[who][lpToken][rewardToken])
+            : _calculateStateBefore(who, lpToken, rewardToken);
         return uint256(unwrap(_senderRewards));
     }
 
@@ -591,50 +607,58 @@ contract VStaker is IVStaker {
      */
     function _calculateStateBefore(
         address who,
-        address lpToken
+        address lpToken,
+        address rewardToken
     )
         private
         view
         returns (
-            SD59x18 _totalVrswAvailable,
+            SD59x18 _totalRewardTokensAvailable,
             SD59x18 _senderRewardsCoefficient,
             SD59x18 _rewardsCoefficientGlobal,
             SD59x18 _senderRewards
         )
     {
         if (unwrap(totalMu[lpToken]) != 0) {
-            _totalVrswAvailable = sd(
+            _totalRewardTokensAvailable = sd(
                 int256(
                     uint256(
-                        IVChainMinter(minter).calculateTokensForPool(lpToken)
+                        IVChainMinter(minter).calculateTokensForPool(
+                            lpToken,
+                            rewardToken
+                        )
                     )
                 )
             );
-            _rewardsCoefficientGlobal = rewardsCoefficientGlobal[lpToken].add(
-                (_totalVrswAvailable.sub(totalVrswAvailable[lpToken])).div(
-                    totalMu[lpToken]
-                )
-            );
+            _rewardsCoefficientGlobal = rewardsCoefficientGlobal[lpToken][
+                rewardToken
+            ].add(
+                    (
+                        _totalRewardTokensAvailable.sub(
+                            totalRewardTokensAvailable[lpToken][rewardToken]
+                        )
+                    ).div(totalMu[lpToken])
+                );
             _senderRewardsCoefficient = _rewardsCoefficientGlobal;
             // you can learn more about the formula in Virtuswap Tokenomics Whitepaper
-            _senderRewards = rewards[who][lpToken].add(
+            _senderRewards = rewards[who][lpToken][rewardToken].add(
                 mu[who][lpToken].mul(
                     _rewardsCoefficientGlobal.sub(
-                        rewardsCoefficient[who][lpToken]
+                        rewardsCoefficient[who][lpToken][rewardToken]
                     )
                 )
             );
         } else {
             (
-                _totalVrswAvailable,
+                _totalRewardTokensAvailable,
                 _senderRewardsCoefficient,
                 _rewardsCoefficientGlobal,
                 _senderRewards
             ) = (
-                totalVrswAvailable[lpToken],
-                rewardsCoefficient[who][lpToken],
-                rewardsCoefficientGlobal[lpToken],
-                rewards[who][lpToken]
+                totalRewardTokensAvailable[lpToken][rewardToken],
+                rewardsCoefficient[who][lpToken][rewardToken],
+                rewardsCoefficientGlobal[lpToken][rewardToken],
+                rewards[who][lpToken][rewardToken]
             );
         }
     }

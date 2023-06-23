@@ -21,6 +21,13 @@ contract VChainMinter is IVChainMinter, Ownable {
         uint256 lastAvailable; // The snapshot of the availableTokens
     }
 
+    struct PartnerTokenInfo {
+        uint128 from; // Timestamp of the start of the partner token distribution
+        uint128 duration; // The duration of the partner token distribution
+        uint128 amount; // Amount to distribute in time range [from; from + duration]
+        uint128 distributedAmount; // Amount distributed before
+    }
+
     uint256 public constant ALLOCATION_POINTS_FACTOR = 100;
 
     // number of VRSW tokens allocated for the current epoch
@@ -60,6 +67,13 @@ contract VChainMinter is IVChainMinter, Ownable {
 
     // allocation points of stakers
     mapping(address => uint256) public allocationPoints;
+
+    // partner tokens list per pool
+    mapping(address => address[]) public partnerTokens;
+
+    // partner tokens info per
+    mapping(address => mapping(address => PartnerTokenInfo))
+        public partnerTokensInfo;
 
     // staker contract address
     address public staker;
@@ -187,23 +201,64 @@ contract VChainMinter is IVChainMinter, Ownable {
     function transferRewards(
         address to,
         address pool,
-        uint256 amount
+        address[] calldata rewardTokens,
+        uint256[] calldata amounts
     ) external override {
         require(block.timestamp >= emissionStartTs, "too early");
         require(staker == msg.sender, "invalid staker");
         if (block.timestamp >= startEpochTime + epochDuration)
             _epochTransition();
 
-        StakerInfo memory stakerInfo = stakers[pool];
-        _updateStakerInfo(
-            stakerInfo,
-            allocationPoints[pool],
-            _availableTokens()
-        );
+        for (uint i = 0; i < rewardTokens.length; ++i) {
+            if (rewardTokens[i] == vrsw) {
+                StakerInfo memory stakerInfo = stakers[pool];
+                _updateStakerInfo(
+                    stakerInfo,
+                    allocationPoints[pool],
+                    _availableTokens()
+                );
+                stakers[pool] = stakerInfo;
+            }
+            SafeERC20.safeTransfer(IERC20(rewardTokens[i]), to, amounts[i]);
+            emit TransferRewards(to, pool, rewardTokens[i], amounts[i]);
+        }
+    }
 
-        stakers[pool] = stakerInfo;
-        SafeERC20.safeTransfer(IERC20(vrsw), to, amount);
-        emit TransferRewards(to, pool, amount);
+    function distributePartnerToken(
+        address partnerToken,
+        uint128 amount,
+        address pool,
+        uint128 from,
+        uint128 duration
+    ) external override onlyOwner {
+        require(amount > 0, "amount must be positive");
+        require(duration > 0, "duration must be positive");
+        require(
+            pool == address(0) || IVStaker(staker).isPoolValid(pool),
+            "invalid pool"
+        );
+        PartnerTokenInfo memory partnerTokenInfo = partnerTokensInfo[pool][
+            partnerToken
+        ];
+        if (
+            partnerTokenInfo.amount == 0 &&
+            partnerTokenInfo.distributedAmount == 0
+        ) {
+            partnerTokenInfo = PartnerTokenInfo(from, duration, amount, 0);
+            partnerTokens[pool].push(partnerToken);
+        } else {
+            partnerTokenInfo.distributedAmount += partnerTokenInfo.amount;
+            partnerTokenInfo.from = from;
+            partnerTokenInfo.duration = duration;
+            partnerTokenInfo.amount = amount;
+        }
+        partnerTokensInfo[pool][partnerToken] = partnerTokenInfo;
+        SafeERC20.safeTransferFrom(
+            IERC20(partnerToken),
+            msg.sender,
+            address(this),
+            amount
+        );
     }
 
     /// @inheritdoc IVChainMinter
@@ -234,17 +289,51 @@ contract VChainMinter is IVChainMinter, Ownable {
         emit NewStaker(_newStaker);
     }
 
+    function getRewardTokens(
+        address pool
+    ) external view override returns (address[] memory rewardTokens) {
+        uint256 partnerTokensNumber = partnerTokens[pool].length;
+        rewardTokens = new address[](partnerTokensNumber + 1);
+        rewardTokens[0] = vrsw;
+        for (uint i = 1; i <= partnerTokensNumber; ++i) {
+            rewardTokens[i] = partnerTokens[pool][i - 1];
+        }
+    }
+
     /// @inheritdoc IVChainMinter
     function calculateTokensForPool(
-        address pool
+        address pool,
+        address rewardToken
     ) external view override returns (uint256) {
-        uint256 _tokensAvailable = block.timestamp >=
-            startEpochTime + epochDuration
-            ? _availableTokensForNextEpoch()
-            : _availableTokens();
-        StakerInfo memory stakerInfo = stakers[pool];
-        _updateStakerInfo(stakerInfo, allocationPoints[pool], _tokensAvailable);
-        return stakerInfo.totalAllocated;
+        if (rewardToken == vrsw) {
+            uint256 _tokensAvailable = block.timestamp >=
+                startEpochTime + epochDuration
+                ? _availableTokensForNextEpoch()
+                : _availableTokens();
+            StakerInfo memory stakerInfo = stakers[pool];
+            _updateStakerInfo(
+                stakerInfo,
+                allocationPoints[pool],
+                _tokensAvailable
+            );
+            return stakerInfo.totalAllocated;
+        } else {
+            PartnerTokenInfo memory partnerTokenInfo = partnerTokensInfo[pool][
+                rewardToken
+            ];
+            return
+                partnerTokenInfo.distributedAmount +
+                (
+                    block.timestamp < partnerTokenInfo.from ||
+                        partnerTokenInfo.duration == 0
+                        ? 0
+                        : (partnerTokenInfo.amount *
+                            Math.min(
+                                partnerTokenInfo.duration,
+                                block.timestamp - partnerTokenInfo.from
+                            )) / partnerTokenInfo.duration
+                );
+        }
     }
 
     /**

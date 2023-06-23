@@ -22,6 +22,7 @@ interface IVChainMinter {
     event TransferRewards(
         address indexed to,
         address indexed pool,
+        address indexed rewardToken,
         uint256 amount
     );
 
@@ -91,13 +92,18 @@ interface IVChainMinter {
      * and the current timestamp must be later than the contract's emission start time.
      *
      * @param to The address of the recipient to transfer tokens to.
-     * @param amount The amount of tokens to transfer.
+     * @param amounts The amount of tokens to transfer.
      *
      * Requirements:
      * - The current timestamp must be later than the contract's emission start time.
      * - The amount to transfer must be greater than zero.
      */
-    function transferRewards(address to, address pool, uint256 amount) external;
+    function transferRewards(
+        address to,
+        address pool,
+        address[] calldata rewardTokens,
+        uint256[] calldata amounts
+    ) external;
 
     /**
      * @notice Mint veVrsw tokens to the specified to address.
@@ -124,12 +130,25 @@ interface IVChainMinter {
      */
     function triggerEpochTransition() external;
 
+    function getRewardTokens(
+        address pool
+    ) external view returns (address[] memory);
+
+    function distributePartnerToken(
+        address partnerToken,
+        uint128 amount,
+        address pool,
+        uint128 from,
+        uint128 duration
+    ) external;
+
     /**
      * @notice Calculates the amount of tokens a pool is eligible to receive from VRSW algorithmic emission.
      * @param pool The address of the staker pool.
      * @return The amount of tokens the pool is eligible to receive.
      */
     function calculateTokensForPool(
-        address pool
+        address pool,
+        address rewardToken
     ) external view returns (uint256);
 }
