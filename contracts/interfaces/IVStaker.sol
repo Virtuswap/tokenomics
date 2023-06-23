@@ -24,18 +24,6 @@ interface IVStaker {
     event StakeLp(address indexed who, address indexed lpToken, uint256 amount);
 
     /**
-     * @notice Emitted when who claims amount of accrued rewards.
-     * @param who Address of the account that claims the rewards.
-     * @param pool Address of LP token, for staking which the rewards are claimed.
-     * @param amount Amount of rewards being claimed.
-     */
-    event RewardsClaimed(
-        address indexed who,
-        address indexed pool,
-        uint256 amount
-    );
-
-    /**
      * @notice Emitted when who unstakes amount of LP tokens.
      * @param who Address of the account that unstakes the tokens.
      * @param lpToken Address of unstaked LP token.
@@ -104,10 +92,11 @@ interface IVStaker {
     function claimRewards(address pool) external;
 
     /**
-     * @notice Returns the amount of VRSW rewards that a user has accrued but not yet claimed. The user's accrued rewards are
+     * @notice Returns the amount of reward tokens that a user has accrued but not yet claimed. The user's accrued rewards are
      * calculated using the _calculateAccruedRewards function.
      * @param who The address of the user to query for accrued rewards.
      * @param pool Address of pool.
+     * @param rewardToken The address of the reward token.
      * @return rewards The amount of VRSW rewards that the user has accrued but not yet claimed.
      */
     function viewRewards(

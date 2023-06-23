@@ -224,6 +224,7 @@ contract VChainMinter is IVChainMinter, Ownable {
         }
     }
 
+    /// @inheritdoc IVChainMinter
     function distributePartnerToken(
         address partnerToken,
         uint128 amount,

@@ -17,6 +17,7 @@ interface IVChainMinter {
      * @notice Emitted when rewards are transferred to an address.
      * @param to The address receiving the rewards.
      * @param pool The address of pool for staking in which the rewards are transferred.
+     * @param rewardToken The address of the reward token transferred
      * @param amount The amount of rewards transferred.
      */
     event TransferRewards(
@@ -85,14 +86,16 @@ interface IVChainMinter {
     function emissionStartTs() external view returns (uint256);
 
     /**
-     * @notice Transfers a specified amount of VRSW tokens as a reward to a recipient.
+     * @notice Transfers a specified amount of reward tokens to a recipient.
      *
      * This function allows a registered staker to transfer a specified amount of
      * rewards tokens to a recipient address. The caller must be a registered staker,
      * and the current timestamp must be later than the contract's emission start time.
      *
      * @param to The address of the recipient to transfer tokens to.
-     * @param amounts The amount of tokens to transfer.
+     * @param pool The address of the pool from which rewards are transferred.
+     * @param rewardTokens The reward tokens addresses.
+     * @param amounts The amounts of reward tokens to transfer.
      *
      * Requirements:
      * - The current timestamp must be later than the contract's emission start time.
@@ -130,10 +133,24 @@ interface IVChainMinter {
      */
     function triggerEpochTransition() external;
 
+    /**
+     * @notice Returns reward tokens addresses for specified pool
+     * @param pool The address of pool.
+     * @return List of reward tokens addresses for specified pool
+     */
     function getRewardTokens(
         address pool
     ) external view returns (address[] memory);
 
+    /**
+     * @notice Distributes amount of partnerToken for a specified pool. The
+     * distribution is linear.
+     * @param partnerToken The address of the partner token.
+     * @param amount The amount of the partner token.
+     * @param pool The pool address for which distribution is created
+     * @param from The timestamp of the distribution start
+     * @param duration The duration of the distribution
+     */
     function distributePartnerToken(
         address partnerToken,
         uint128 amount,
@@ -143,8 +160,9 @@ interface IVChainMinter {
     ) external;
 
     /**
-     * @notice Calculates the amount of tokens a pool is eligible to receive from VRSW algorithmic emission.
+     * @notice Calculates the amount of reward tokens a pool is eligible to receive.
      * @param pool The address of the staker pool.
+     * @param rewardToken The address of the reward token.
      * @return The amount of tokens the pool is eligible to receive.
      */
     function calculateTokensForPool(
