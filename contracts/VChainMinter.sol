@@ -324,8 +324,7 @@ contract VChainMinter is IVChainMinter, Ownable {
             return
                 partnerTokenInfo.distributedAmount +
                 (
-                    block.timestamp < partnerTokenInfo.from ||
-                        partnerTokenInfo.duration == 0
+                    block.timestamp < partnerTokenInfo.from
                         ? 0
                         : (partnerTokenInfo.amount *
                             Math.min(
