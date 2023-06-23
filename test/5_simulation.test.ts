@@ -8,6 +8,7 @@ import {
     VChainMinter,
     VStaker,
     Token0,
+    Token1,
 } from '../typechain-types';
 import { time, mine } from '@nomicfoundation/hardhat-network-helpers';
 
@@ -18,6 +19,7 @@ describe('Simulation', function () {
     let globalMinter: VGlobalMinter;
     let minter: VChainMinter;
     let token0: Token0;
+    let partnerToken: Token1;
     let staker: VStaker;
     let accounts: SignerWithAddress[];
 
@@ -131,28 +133,50 @@ describe('Simulation', function () {
         account: SignerWithAddress,
         staker: VStaker
     ) {
+        const partnerBalanceBefore = await partnerToken.balanceOf(
+            account.address
+        );
         const balanceBefore = await vrsw.balanceOf(account.address);
         await staker
             .connect(account)
             .claimRewards(ethers.constants.AddressZero);
         const balanceAfter = await vrsw.balanceOf(account.address);
+        const partnerBalanceAfter = await partnerToken.balanceOf(
+            account.address
+        );
         console.log(
             `${account.address} is claiming ${balanceAfter
                 .sub(balanceBefore)
                 .toString()} rewards VRSW-only`
+        );
+        console.log(
+            `${account.address} is claiming ${partnerBalanceAfter
+                .sub(partnerBalanceBefore)
+                .toString()} PARTNER rewards VRSW-only`
         );
     }
     async function claimRewardsRandom1(
         account: SignerWithAddress,
         staker: VStaker
     ) {
+        const partnerBalanceBefore = await partnerToken.balanceOf(
+            account.address
+        );
         const balanceBefore = await vrsw.balanceOf(account.address);
         await staker.connect(account).claimRewards(token0.address);
         const balanceAfter = await vrsw.balanceOf(account.address);
+        const partnerBalanceAfter = await partnerToken.balanceOf(
+            account.address
+        );
         console.log(
             `${account.address} is claiming ${balanceAfter
                 .sub(balanceBefore)
                 .toString()} rewards TOKEN 0`
+        );
+        console.log(
+            `${account.address} is claiming ${partnerBalanceAfter
+                .sub(partnerBalanceBefore)
+                .toString()} PARTNER rewards TOKEN 0`
         );
     }
 
@@ -197,14 +221,20 @@ describe('Simulation', function () {
         if (
             Number(
                 ethers.utils.formatEther(
-                    (await staker.viewRewards(
+                    await staker.viewRewards(
                         account.address,
-                        ethers.constants.AddressZero
-                    )) ||
-                        (await staker.viewRewards(
-                            account.address,
-                            ethers.constants.AddressZero
-                        ))
+                        ethers.constants.AddressZero,
+                        vrsw.address
+                    )
+                )
+            ) ||
+            Number(
+                ethers.utils.formatEther(
+                    await staker.viewRewards(
+                        account.address,
+                        ethers.constants.AddressZero,
+                        partnerToken.address
+                    )
                 )
             )
         ) {
@@ -213,14 +243,20 @@ describe('Simulation', function () {
         if (
             Number(
                 ethers.utils.formatEther(
-                    (await staker.viewRewards(
+                    await staker.viewRewards(
                         account.address,
-                        token0.address
-                    )) ||
-                        (await staker.viewRewards(
-                            account.address,
-                            ethers.constants.AddressZero
-                        ))
+                        token0.address,
+                        vrsw.address
+                    )
+                )
+            ) ||
+            Number(
+                ethers.utils.formatEther(
+                    await staker.viewRewards(
+                        account.address,
+                        token0.address,
+                        partnerToken.address
+                    )
                 )
             )
         ) {
@@ -294,6 +330,7 @@ describe('Simulation', function () {
         accounts = await ethers.getSigners();
         await deployments.fixture(['all']);
         token0 = await ethers.getContract('Token0');
+        partnerToken = await ethers.getContract('Token1');
         globalMinter = await ethers.getContract('globalMinter');
         vrsw = await ethers.getContractAt('Vrsw', await globalMinter.vrsw());
         minter = await ethers.getContract('chainMinter');
@@ -302,6 +339,10 @@ describe('Simulation', function () {
         await vrsw.approve(
             minter.address,
             ethers.utils.parseEther('1000000000000000')
+        );
+        await partnerToken.approve(
+            minter.address,
+            ethers.utils.parseEther('1000000000000000000')
         );
 
         await minter.setAllocationPoints(
@@ -315,6 +356,24 @@ describe('Simulation', function () {
                 ethers.utils.parseEther('25000000')
             );
         }
+        await partnerToken.mint(
+            accounts[0].address,
+            ethers.utils.parseEther('600000')
+        );
+        await minter.distributePartnerToken(
+            partnerToken.address,
+            ethers.utils.parseEther('100000'),
+            ethers.constants.AddressZero,
+            await globalMinter.emissionStartTs(),
+            315532800
+        );
+        await minter.distributePartnerToken(
+            partnerToken.address,
+            ethers.utils.parseEther('500000'),
+            token0.address,
+            (await globalMinter.emissionStartTs()) + 100000000,
+            315532800 - 100000000
+        );
         await time.setNextBlockTimestamp(await globalMinter.emissionStartTs());
         await mine();
     });
@@ -432,6 +491,11 @@ describe('Simulation', function () {
             const vrswBalance = await vrsw.balanceOf(account.address);
             console.log(`VRSW balance of ${account.address} = ${vrswBalance}`);
             finalVrswBalance = finalVrswBalance.add(vrswBalance);
+            console.log(
+                `Partner token balance of ${
+                    account.address
+                } = ${await partnerToken.balanceOf(account.address)}`
+            );
             expect(vrswBalance).not.to.be.below(
                 ethers.utils.parseEther('25000000')
             );
@@ -447,6 +511,11 @@ describe('Simulation', function () {
             );
         }
         console.log(
+            `Partner balance of staker = ${await partnerToken.balanceOf(
+                staker.address
+            )}`
+        );
+        console.log(
             `LP balance of staker = ${await token0.balanceOf(staker.address)}`
         );
         console.log(
@@ -458,6 +527,11 @@ describe('Simulation', function () {
         console.log(
             `VRSW balance of minter = ${await vrsw.balanceOf(minter.address)}`
         );
+        console.log(
+            `Partner balance of minter = ${await partnerToken.balanceOf(
+                minter.address
+            )}`
+        );
         /*
         expect(
             finalVrswBalance
@@ -468,8 +542,14 @@ describe('Simulation', function () {
         */
         expect(await token0.balanceOf(minter.address)).to.be.equal('0');
         // dust
-        expect(await vrsw.balanceOf(minter.address)).to.be.lessThan('10000000000000000');
+        expect(await vrsw.balanceOf(minter.address)).to.be.lessThan(
+            '10000000000000000'
+        );
+        expect(await partnerToken.balanceOf(minter.address)).to.be.lessThan(
+            '10000000000000000'
+        );
         expect(await token0.balanceOf(staker.address)).to.be.equal('0');
         expect(await vrsw.balanceOf(staker.address)).to.be.equal('0');
+        expect(await partnerToken.balanceOf(staker.address)).to.be.equal('0');
     });
 });

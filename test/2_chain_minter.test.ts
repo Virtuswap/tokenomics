@@ -10,13 +10,14 @@ import {
     Token0,
     Token1,
 } from '../typechain-types';
-import { time } from '@nomicfoundation/hardhat-network-helpers';
+import { time, mine } from '@nomicfoundation/hardhat-network-helpers';
 
 describe('vChainMinter 1', function () {
     let staker: VStaker;
     let minter: VChainMinter;
     let vrsw: Vrsw;
     let token0: Token0;
+    let partnerToken: Token1;
     let globalMinter: VGlobalMinter;
     let accounts: SignerWithAddress[];
 
@@ -27,17 +28,27 @@ describe('vChainMinter 1', function () {
         minter = await ethers.getContract('chainMinter');
         staker = await ethers.getContract('staker');
         token0 = await ethers.getContract('Token0');
+        partnerToken = await ethers.getContract('Token1');
         globalMinter = await ethers.getContract('globalMinter');
 
         vrsw = await ethers.getContractAt('Vrsw', await minter.vrsw());
 
         await vrsw.approve(minter.address, ethers.utils.parseEther('10000000'));
+        await partnerToken.approve(
+            minter.address,
+            ethers.utils.parseEther('10000000')
+        );
 
         // get tokens for the next epoch
         await globalMinter.nextEpochTransfer();
 
         await expect(
-            minter.transferRewards(accounts[0].address, token0.address, '1')
+            minter.transferRewards(
+                accounts[0].address,
+                token0.address,
+                [vrsw.address],
+                ['1']
+            )
         ).to.revertedWith('too early');
 
         // skip time to emissionStart
@@ -147,7 +158,12 @@ describe('vChainMinter 1', function () {
 
     it('transferRewards fails when called not by staker', async () => {
         await expect(
-            minter.transferRewards(accounts[1].address, token0.address, '1')
+            minter.transferRewards(
+                accounts[1].address,
+                token0.address,
+                [vrsw.address],
+                ['1']
+            )
         ).to.reverted;
     });
 
@@ -255,6 +271,202 @@ describe('vChainMinter 1', function () {
         await expect(minter.prepareForNextEpoch('1')).to.revertedWith(
             'Too early'
         );
+    });
+
+    it('distributePartnerToken works', async () => {
+        const amount = ethers.utils.parseEther('1000');
+        await mine();
+        const start = (await time.latest()) + 3;
+        const partnerTokensBefore = await minter.getRewardTokens(
+            token0.address
+        );
+        const partnerTokensInfoBefore = await minter.partnerTokensInfo(
+            token0.address,
+            partnerToken.address
+        );
+        const balanceBefore = await partnerToken.balanceOf(accounts[0].address);
+        await minter.distributePartnerToken(
+            partnerToken.address,
+            amount,
+            token0.address,
+            start,
+            1000
+        );
+        const balanceAfter = await partnerToken.balanceOf(accounts[0].address);
+        const partnerTokensAfter = await minter.getRewardTokens(token0.address);
+        const partnerTokensInfoAfter = await minter.partnerTokensInfo(
+            token0.address,
+            partnerToken.address
+        );
+        expect(partnerTokensBefore[0]).to.be.equal(vrsw.address);
+        expect(partnerTokensAfter[0]).to.be.equal(vrsw.address);
+        expect(partnerTokensAfter[1]).to.be.equal(partnerToken.address);
+        expect(partnerTokensAfter.length).to.be.equal(2);
+        expect(balanceAfter).to.be.equal(balanceBefore.sub(amount));
+        expect(partnerTokensInfoBefore.from).to.be.equal('0');
+        expect(partnerTokensInfoBefore.duration).to.be.equal('0');
+        expect(partnerTokensInfoBefore.amount).to.be.equal('0');
+        expect(partnerTokensInfoBefore.distributedAmount).to.be.equal('0');
+        expect(partnerTokensInfoAfter.from).to.be.equal(start);
+        expect(partnerTokensInfoAfter.duration).to.be.equal(1000);
+        expect(partnerTokensInfoAfter.amount).to.be.equal(amount);
+        expect(partnerTokensInfoAfter.distributedAmount).to.be.equal('0');
+
+        expect(await time.latest()).to.be.lessThan(start);
+        expect(
+            await minter.calculateTokensForPool(
+                token0.address,
+                partnerToken.address
+            )
+        ).to.be.equal('0');
+        await time.setNextBlockTimestamp(start + 1);
+        await mine();
+        expect(
+            await minter.calculateTokensForPool(
+                token0.address,
+                partnerToken.address
+            )
+        ).to.be.equal(ethers.utils.parseEther('1'));
+        await time.setNextBlockTimestamp(start + 1000);
+        await mine();
+        expect(
+            await minter.calculateTokensForPool(
+                token0.address,
+                partnerToken.address
+            )
+        ).to.be.equal(ethers.utils.parseEther('1000'));
+        await time.setNextBlockTimestamp(start + 2000);
+        await mine();
+        expect(
+            await minter.calculateTokensForPool(
+                token0.address,
+                partnerToken.address
+            )
+        ).to.be.equal(ethers.utils.parseEther('1000'));
+
+        const partnerTokensBefore2 = await minter.getRewardTokens(
+            token0.address
+        );
+        const partnerTokensInfoBefore2 = await minter.partnerTokensInfo(
+            token0.address,
+            partnerToken.address
+        );
+        await minter.distributePartnerToken(
+            partnerToken.address,
+            amount,
+            token0.address,
+            start + 3000,
+            1000
+        );
+        const partnerTokensAfter2 = await minter.getRewardTokens(
+            token0.address
+        );
+        const partnerTokensInfoAfter2 = await minter.partnerTokensInfo(
+            token0.address,
+            partnerToken.address
+        );
+        expect(partnerTokensBefore2[0]).to.be.equal(vrsw.address);
+        expect(partnerTokensBefore2[1]).to.be.equal(partnerToken.address);
+        expect(partnerTokensBefore2.length).to.be.equal(2);
+        expect(partnerTokensAfter2[0]).to.be.equal(vrsw.address);
+        expect(partnerTokensAfter2[1]).to.be.equal(partnerToken.address);
+        expect(partnerTokensAfter2.length).to.be.equal(2);
+        expect(partnerTokensInfoBefore2.from).to.be.equal(start);
+        expect(partnerTokensInfoBefore2.duration).to.be.equal(1000);
+        expect(partnerTokensInfoBefore2.amount).to.be.equal(amount);
+        expect(partnerTokensInfoBefore2.distributedAmount).to.be.equal('0');
+        expect(partnerTokensInfoAfter2.from).to.be.equal(start + 3000);
+        expect(partnerTokensInfoAfter2.duration).to.be.equal(1000);
+        expect(partnerTokensInfoAfter2.amount).to.be.equal(amount);
+        expect(partnerTokensInfoAfter2.distributedAmount).to.be.equal(amount);
+
+        expect(await time.latest()).to.be.lessThan(start + 3000);
+        expect(
+            await minter.calculateTokensForPool(
+                token0.address,
+                partnerToken.address
+            )
+        ).to.be.equal(amount);
+        await time.setNextBlockTimestamp(start + 3001);
+        await mine();
+        expect(
+            await minter.calculateTokensForPool(
+                token0.address,
+                partnerToken.address
+            )
+        ).to.be.equal(ethers.utils.parseEther('1001'));
+        await time.setNextBlockTimestamp(start + 4000);
+        await mine();
+        expect(
+            await minter.calculateTokensForPool(
+                token0.address,
+                partnerToken.address
+            )
+        ).to.be.equal(ethers.utils.parseEther('2000'));
+        await time.setNextBlockTimestamp(start + 5000);
+        await mine();
+        expect(
+            await minter.calculateTokensForPool(
+                token0.address,
+                partnerToken.address
+            )
+        ).to.be.equal(ethers.utils.parseEther('2000'));
+    });
+
+    it('distributePartnerToken should fail if amount is zero', async () => {
+        const start = (await time.latest()) + 3;
+        await expect(
+            minter.distributePartnerToken(
+                partnerToken.address,
+                '0',
+                token0.address,
+                start,
+                1000
+            )
+        ).to.revertedWith('amount must be positive');
+    });
+
+    it('distributePartnerToken should fail if called by non-owner', async () => {
+        const start = (await time.latest()) + 3;
+        await expect(
+            minter
+                .connect(accounts[1])
+                .distributePartnerToken(
+                    partnerToken.address,
+                    '100',
+                    token0.address,
+                    start,
+                    1000
+                )
+        ).to.revertedWith('Ownable: caller is not the owner');
+    });
+
+    it('distributePartnerToken should fail if duration is zero', async () => {
+        const amount = ethers.utils.parseEther('1000');
+        const start = (await time.latest()) + 3;
+        await expect(
+            minter.distributePartnerToken(
+                partnerToken.address,
+                amount,
+                token0.address,
+                start,
+                0
+            )
+        ).to.revertedWith('duration must be positive');
+    });
+
+    it('distributePartnerToken should fail if pool is invalid', async () => {
+        const amount = ethers.utils.parseEther('1000');
+        const start = (await time.latest()) + 3;
+        await expect(
+            minter.distributePartnerToken(
+                partnerToken.address,
+                amount,
+                vrsw.address,
+                start,
+                1
+            )
+        ).to.reverted;
     });
 });
 
