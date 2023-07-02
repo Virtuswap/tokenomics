@@ -124,14 +124,16 @@ describe('vChainMinter 1', function () {
             minterFactory.deploy(
                 await time.latest(),
                 ethers.constants.AddressZero,
-                vrsw.address
+                vrsw.address,
+                true
             )
         ).to.revertedWith('tokenomicsParams zero address');
         await expect(
             minterFactory.deploy(
                 await time.latest(),
                 vrsw.address,
-                ethers.constants.AddressZero
+                ethers.constants.AddressZero,
+                true
             )
         ).to.revertedWith('vrsw zero address');
     });

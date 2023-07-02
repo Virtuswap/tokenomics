@@ -14,6 +14,358 @@ import {
 } from '../typechain-types';
 import { time, mine } from '@nomicfoundation/hardhat-network-helpers';
 
+describe('vStaker (without veVRSW)', function () {
+    let vrsw: Vrsw;
+    let token0: Token0;
+    let token1: Token1;
+    let token2: Token2;
+    let staker: VStaker;
+    let accounts: SignerWithAddress[];
+    let minter: VChainMinter;
+    let globalMinter: VGlobalMinter;
+    let tokenomicsParams: VTokenomicsParams;
+
+    before(async () => {
+        // init
+        accounts = await ethers.getSigners();
+        await deployments.fixture(['all']);
+        const stakerFactory = await ethers.getContractFactory('VStaker');
+        token0 = await ethers.getContract('Token0');
+        token1 = await ethers.getContract('Token1');
+        token2 = await ethers.getContract('Token2');
+        tokenomicsParams = await ethers.getContract('tokenomicsParams');
+        globalMinter = await ethers.getContract('globalMinter');
+        vrsw = await ethers.getContractAt('Vrsw', await globalMinter.vrsw());
+
+        const minterFactory = await ethers.getContractFactory('VChainMinter');
+        minter = await ethers.getContractAt(
+            'VChainMinter',
+            (
+                await minterFactory.deploy(
+                    await globalMinter.emissionStartTs(),
+                    tokenomicsParams.address,
+                    vrsw.address,
+                    false
+                )
+            ).address
+        );
+        staker = await ethers.getContractAt(
+            'VStaker',
+            (
+                await stakerFactory.deploy(
+                    vrsw.address,
+                    minter.address,
+                    tokenomicsParams.address,
+                    await (await ethers.getContract('staker')).vPairFactory()
+                )
+            ).address
+        );
+        await minter.setStaker(staker.address);
+        expect(await minter.veVrsw()).to.be.equal(ethers.constants.AddressZero);
+
+        // approve
+        await token0.approve(staker.address, ethers.utils.parseEther('1000'));
+        await vrsw
+            .connect(accounts[1])
+            .approve(staker.address, ethers.utils.parseEther('1000'));
+        await vrsw.approve(staker.address, ethers.utils.parseEther('1000'));
+        await vrsw.approve(minter.address, ethers.utils.parseEther('10000000'));
+
+        // set allocation points for new staker and default staker
+        await minter.setAllocationPoints(
+            [token0.address, ethers.constants.AddressZero],
+            ['0', '100']
+        );
+
+        // get tokens for the next epoch
+        await globalMinter.nextEpochTransfer();
+        // transfer tokens for the next epoch to the chain minter
+        await minter.prepareForNextEpoch(
+            await vrsw.balanceOf(accounts[0].address)
+        );
+        // some functions should fail when they're called before emission start timestamp
+        await expect(
+            staker.stakeVrsw(ethers.utils.parseEther('10'))
+        ).to.revertedWith('too early');
+        await expect(
+            staker.stakeLp(token0.address, ethers.utils.parseEther('10'))
+        ).to.revertedWith('too early');
+        await expect(staker.claimRewards(token0.address)).to.revertedWith(
+            'too early'
+        );
+        await expect(
+            staker.unstakeLp(token0.address, ethers.utils.parseEther('10'))
+        ).to.revertedWith('too early');
+        await expect(
+            staker.unstakeVrsw(ethers.utils.parseEther('10'))
+        ).to.revertedWith('too early');
+        await expect(
+            staker.lockVrsw(ethers.utils.parseEther('10'), '1')
+        ).to.revertedWith('too early');
+        await expect(
+            staker.lockStakedVrsw(ethers.utils.parseEther('10'), '1')
+        ).to.revertedWith('too early');
+        await expect(
+            staker.unlockVrsw(accounts[0].address, '1')
+        ).to.revertedWith('too early');
+
+        // skip time to emissionStart
+        await time.setNextBlockTimestamp(
+            ethers.BigNumber.from(await globalMinter.emissionStartTs()).add(60)
+        );
+
+        await minter.triggerEpochTransition();
+
+        // get vrsw tokens for testing
+        await globalMinter.arbitraryTransfer(
+            accounts[0].address,
+            ethers.utils.parseEther('1000')
+        );
+        await globalMinter.arbitraryTransfer(
+            accounts[1].address,
+            ethers.utils.parseEther('1000')
+        );
+    });
+
+    it('stakeVrsw works', async () => {
+        const amount = ethers.utils.parseEther('10');
+        const accountBalanceBefore = await vrsw.balanceOf(accounts[0].address);
+        const contractBalanceBefore = await vrsw.balanceOf(staker.address);
+        const muBefore = await staker.mu(
+            accounts[0].address,
+            ethers.constants.AddressZero
+        );
+        const totalMuBefore = await staker.totalMu(
+            ethers.constants.AddressZero
+        );
+        await staker.stakeVrsw(amount);
+        const accountBalanceAfter = await vrsw.balanceOf(accounts[0].address);
+        const contractBalanceAfter = await vrsw.balanceOf(staker.address);
+
+        expect(accountBalanceAfter).to.be.equal(
+            accountBalanceBefore.sub(amount)
+        );
+        expect(contractBalanceAfter).to.be.equal(
+            contractBalanceBefore.add(amount)
+        );
+        expect(
+            await staker.mu(accounts[0].address, ethers.constants.AddressZero)
+        ).to.above(muBefore);
+        expect(await staker.totalMu(ethers.constants.AddressZero)).to.above(
+            totalMuBefore
+        );
+        expect(
+            (await staker.vrswStakes(accounts[0].address, 0)).amount
+        ).to.equal(amount);
+    });
+
+    it('stakeVrsw twice works', async () => {
+        await time.setNextBlockTimestamp((await time.latest()) + 10);
+        const amount = ethers.utils.parseEther('10');
+        const accountBalanceBefore = await vrsw.balanceOf(accounts[0].address);
+        const contractBalanceBefore = await vrsw.balanceOf(staker.address);
+        const muBefore = await staker.mu(
+            accounts[0].address,
+            ethers.constants.AddressZero
+        );
+        const totalMuBefore = await staker.totalMu(
+            ethers.constants.AddressZero
+        );
+        const totalVrswBefore = await staker.totalRewardTokensAvailable(
+            ethers.constants.AddressZero,
+            vrsw.address
+        );
+        await staker.stakeVrsw(amount);
+        const accountBalanceAfter = await vrsw.balanceOf(accounts[0].address);
+        const contractBalanceAfter = await vrsw.balanceOf(staker.address);
+        expect(accountBalanceAfter).to.be.equal(
+            accountBalanceBefore.sub(amount)
+        );
+        expect(contractBalanceAfter).to.be.equal(
+            contractBalanceBefore.add(amount)
+        );
+        expect(
+            await staker.mu(accounts[0].address, ethers.constants.AddressZero)
+        ).to.above(muBefore);
+        expect(await staker.totalMu(ethers.constants.AddressZero)).to.above(
+            totalMuBefore
+        );
+        expect(
+            await staker.totalRewardTokensAvailable(
+                ethers.constants.AddressZero,
+                vrsw.address
+            )
+        ).to.be.above(totalVrswBefore);
+        expect(
+            (await staker.vrswStakes(accounts[0].address, 0)).amount
+        ).to.equal(amount.mul(2));
+    });
+
+    it('unstakeVrsw works', async () => {
+        const amount = (await staker.vrswStakes(accounts[0].address, 0)).amount;
+        const accountBalanceBefore = await vrsw.balanceOf(accounts[0].address);
+        const contractBalanceBefore = await vrsw.balanceOf(staker.address);
+        const muBefore = await staker.mu(
+            accounts[0].address,
+            ethers.constants.AddressZero
+        );
+        const totalMuBefore = await staker.totalMu(
+            ethers.constants.AddressZero
+        );
+        const totalVrswBefore = await staker.totalRewardTokensAvailable(
+            ethers.constants.AddressZero,
+            vrsw.address
+        );
+        await staker.unstakeVrsw(amount);
+        const accountBalanceAfter = await vrsw.balanceOf(accounts[0].address);
+        const contractBalanceAfter = await vrsw.balanceOf(staker.address);
+
+        expect(accountBalanceAfter).to.be.equal(
+            accountBalanceBefore.add(amount)
+        );
+        expect(contractBalanceAfter).to.be.equal(
+            contractBalanceBefore.sub(amount)
+        );
+        expect(
+            await staker.mu(accounts[0].address, ethers.constants.AddressZero)
+        ).to.below(muBefore);
+        expect(await staker.totalMu(ethers.constants.AddressZero)).to.below(
+            totalMuBefore
+        );
+        expect(
+            await staker.totalRewardTokensAvailable(
+                ethers.constants.AddressZero,
+                vrsw.address
+            )
+        ).to.be.above(totalVrswBefore);
+        expect(
+            (await staker.vrswStakes(accounts[0].address, 0)).amount
+        ).to.equal('0');
+    });
+
+    it('unstakeVrsw fails if amount is zero', async () => {
+        const amount = ethers.utils.parseEther('0');
+        await expect(staker.unstakeVrsw(amount)).to.revertedWith(
+            'insufficient amount'
+        );
+    });
+
+    it('unstakeVrsw fails if amount is greater than stakes', async () => {
+        const amount = (
+            await staker.vrswStakes(accounts[0].address, 0)
+        ).amount.add('1');
+        await expect(staker.unstakeVrsw(amount)).to.revertedWith(
+            'not enough tokens'
+        );
+    });
+
+    it('lockVrsw works', async () => {
+        const amount = ethers.utils.parseEther('10');
+        const accountBalanceBefore = await vrsw.balanceOf(accounts[0].address);
+        const contractBalanceBefore = await vrsw.balanceOf(staker.address);
+        const muBefore = await staker.mu(
+            accounts[0].address,
+            ethers.constants.AddressZero
+        );
+        const totalMuBefore = await staker.totalMu(
+            ethers.constants.AddressZero
+        );
+        await staker.lockVrsw(amount, '100');
+        const accountBalanceAfter = await vrsw.balanceOf(accounts[0].address);
+        const contractBalanceAfter = await vrsw.balanceOf(staker.address);
+
+        expect(accountBalanceAfter).to.be.equal(
+            accountBalanceBefore.sub(amount)
+        );
+        expect(contractBalanceAfter).to.be.equal(
+            contractBalanceBefore.add(amount)
+        );
+        expect(
+            await staker.mu(accounts[0].address, ethers.constants.AddressZero)
+        ).to.above(muBefore);
+        expect(await staker.totalMu(ethers.constants.AddressZero)).to.above(
+            totalMuBefore
+        );
+        expect(
+            (await staker.vrswStakes(accounts[0].address, 1)).amount
+        ).to.equal(amount);
+        expect(await staker.checkLock(accounts[0].address)).to.be.an('array')
+            .that.is.empty;
+    });
+
+    it('lockVrsw works when no other stakes', async () => {
+        const amount = ethers.utils.parseEther('10');
+        const accountBalanceBefore = await vrsw.balanceOf(accounts[1].address);
+        const contractBalanceBefore = await vrsw.balanceOf(staker.address);
+        const totalVrswBefore = await staker.totalRewardTokensAvailable(
+            ethers.constants.AddressZero,
+            vrsw.address
+        );
+        assert(
+            (await staker.connect(accounts[1]).viewVrswStakes()).length === 0
+        );
+        await vrsw
+            .connect(accounts[1])
+            .approve(staker.address, ethers.utils.parseEther('1000'));
+        await staker.connect(accounts[1]).lockVrsw(amount, '10');
+        expect(
+            (await staker.connect(accounts[1]).viewVrswStakes()).length
+        ).to.be.equal(2);
+        const accountBalanceAfter = await vrsw.balanceOf(accounts[1].address);
+        const contractBalanceAfter = await vrsw.balanceOf(staker.address);
+
+        expect(accountBalanceAfter).to.be.equal(
+            accountBalanceBefore.sub(amount)
+        );
+        expect(contractBalanceAfter).to.be.equal(
+            contractBalanceBefore.add(amount)
+        );
+        await mine();
+        expect(
+            await staker.totalRewardTokensAvailable(
+                ethers.constants.AddressZero,
+                vrsw.address
+            )
+        ).to.be.above(totalVrswBefore);
+        expect(
+            (await staker.vrswStakes(accounts[1].address, 1)).amount
+        ).to.equal(amount);
+        expect(await staker.checkLock(accounts[1].address)).to.be.an('array')
+            .that.is.empty;
+    });
+
+    it('lockVrsw fails if amount is zero', async () => {
+        const amount = ethers.utils.parseEther('0');
+        await expect(staker.lockVrsw(amount, '10')).to.revertedWith(
+            'insufficient amount'
+        );
+    });
+
+    it('lockVrsw fails when stakes limit is exceeded', async () => {
+        const amount = ethers.utils.parseEther('1');
+        await globalMinter.arbitraryTransfer(
+            accounts[2].address,
+            ethers.utils.parseEther('100')
+        );
+        await vrsw
+            .connect(accounts[2])
+            .approve(staker.address, ethers.utils.parseEther('100'));
+        for (
+            var i = 0;
+            i <
+            (
+                await staker.connect(accounts[2]).STAKE_POSITIONS_LIMIT()
+            ).toNumber();
+            ++i
+        ) {
+            await staker.connect(accounts[2]).lockVrsw(amount, '10');
+        }
+        await expect(
+            staker.connect(accounts[2]).lockVrsw(amount, '10')
+        ).to.revertedWith('stake positions limit is exceeded');
+    });
+});
+
 describe('vStaker', function () {
     let vrsw: Vrsw;
     let veVrsw: VeVrsw;

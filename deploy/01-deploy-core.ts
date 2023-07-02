@@ -63,7 +63,8 @@ const deployCore: DeployFunction = async function (
         args: [
             timestamp,
             tokenomicsParams.address,
-            vrsw.address
+            vrsw.address,
+            true
         ],
         log: true,
     });

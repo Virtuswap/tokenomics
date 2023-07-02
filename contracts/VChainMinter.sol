@@ -88,7 +88,7 @@ contract VChainMinter is IVChainMinter, Ownable {
     address public immutable vrsw;
 
     // veVRSW token address
-    VeVrsw public immutable veVrsw;
+    address public immutable veVrsw;
 
     /**
      * @dev Constructor function
@@ -99,7 +99,8 @@ contract VChainMinter is IVChainMinter, Ownable {
     constructor(
         uint32 _emissionStartTs,
         address _tokenomicsParams,
-        address _vrsw
+        address _vrsw,
+        bool _enableVeVrsw
     ) {
         require(
             _tokenomicsParams != address(0),
@@ -112,7 +113,9 @@ contract VChainMinter is IVChainMinter, Ownable {
         epochPreparationTime = 1 weeks;
         startEpochTime = _emissionStartTs - epochDuration;
         vrsw = _vrsw;
-        veVrsw = new VeVrsw(address(this));
+        veVrsw = _enableVeVrsw
+            ? address(new VeVrsw(address(this)))
+            : address(0);
     }
 
     /// @inheritdoc IVChainMinter
@@ -266,14 +269,14 @@ contract VChainMinter is IVChainMinter, Ownable {
     function mintVeVrsw(address to, uint256 amount) external override {
         require(amount > 0, "zero amount");
         require(staker == msg.sender, "invalid staker");
-        veVrsw.mint(to, amount);
+        if (veVrsw != address(0)) VeVrsw(veVrsw).mint(to, amount);
     }
 
     /// @inheritdoc IVChainMinter
     function burnVeVrsw(address from, uint256 amount) external override {
         require(amount > 0, "zero amount");
         require(staker == msg.sender, "invalid staker");
-        veVrsw.burn(from, amount);
+        if (veVrsw != address(0)) VeVrsw(veVrsw).burn(from, amount);
     }
 
     /// @inheritdoc IVChainMinter
