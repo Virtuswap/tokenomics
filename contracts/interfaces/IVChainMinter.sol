@@ -27,6 +27,8 @@ interface IVChainMinter {
         uint256 amount
     );
 
+    event AllocationPointsChanged(address[] _pools, uint[] _allocationPoints);
+
     /**
      * @notice Changes minting epoch duration and preparation time.
      * @param _epochDuration The duration (in seconds) of the epoch starting from the next

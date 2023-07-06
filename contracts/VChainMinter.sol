@@ -198,6 +198,7 @@ contract VChainMinter is IVChainMinter, Ownable {
             "sum must be less than 100%"
         );
         totalAllocationPoints = uint256(_totalAllocationPoints);
+        emit AllocationPointsChanged(_pools, _allocationPoints);
     }
 
     /// @inheritdoc IVChainMinter
