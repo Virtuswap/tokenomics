@@ -62,6 +62,13 @@ interface IVStaker {
         uint128 lockDuration
     );
 
+    event MuChanged(
+        address indexed who,
+        address indexed pool,
+        uint256 mu,
+        uint256 totalMu
+    );
+
     /**
      * @notice Emitted when who unlocks amount of VRSW tokens.
      * @param who Address of the account that unlocks the tokens.

@@ -539,14 +539,23 @@ contract VStaker is IVStaker {
      */
     function _updateEveryStateAfter(address who) private {
         SD59x18 vrswMultiplier = _calculateVrswMultiplier(who);
+        SD59x18 newMu;
+        SD59x18 newTotalMu;
         uint lpStakesNumber = lpStakes[who].length;
         address lpToken;
         for (uint i = 0; i < lpStakesNumber; ++i) {
             lpToken = lpStakes[who][i].lpToken;
-            (mu[who][lpToken], totalMu[lpToken]) = _calculateStateAfter(
+            (newMu, newTotalMu) = _calculateStateAfter(
                 who,
                 lpToken,
                 vrswMultiplier
+            );
+            (mu[who][lpToken], totalMu[lpToken]) = (newMu, newTotalMu);
+            emit MuChanged(
+                who,
+                lpToken,
+                uint256(unwrap(newMu)),
+                uint256(unwrap(newTotalMu))
             );
         }
     }
@@ -575,10 +584,17 @@ contract VStaker is IVStaker {
      */
     function _updateStateAfter(address who, address lpToken) private {
         SD59x18 vrswMultiplier = _calculateVrswMultiplier(who);
-        (mu[who][lpToken], totalMu[lpToken]) = _calculateStateAfter(
+        (SD59x18 newMu, SD59x18 newTotalMu) = _calculateStateAfter(
             who,
             lpToken,
             vrswMultiplier
+        );
+        (mu[who][lpToken], totalMu[lpToken]) = (newMu, newTotalMu);
+        emit MuChanged(
+            who,
+            lpToken,
+            uint256(unwrap(newMu)),
+            uint256(unwrap(newTotalMu))
         );
     }
 
