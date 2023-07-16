@@ -28,7 +28,7 @@ contract VChainMinter is IVChainMinter, Ownable {
         uint128 distributedAmount; // Amount distributed before
     }
 
-    uint256 public constant ALLOCATION_POINTS_FACTOR = 100;
+    uint256 public constant ALLOCATION_POINTS_FACTOR = 1000000;
 
     // number of VRSW tokens allocated for the current epoch
     uint256 public currentEpochBalance;
@@ -195,7 +195,7 @@ contract VChainMinter is IVChainMinter, Ownable {
         }
         require(
             uint256(_totalAllocationPoints) <= ALLOCATION_POINTS_FACTOR,
-            "sum must be less than 100%"
+            "sum must be less than 1000000"
         );
         totalAllocationPoints = uint256(_totalAllocationPoints);
         emit AllocationPointsChanged(_pools, _allocationPoints);

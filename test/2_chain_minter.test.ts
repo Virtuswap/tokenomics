@@ -585,13 +585,13 @@ describe('vChainMinter: allocation points', function () {
         ).to.revertedWith('lengths differ');
     });
 
-    it('setAllocationPoints fails when sum is more than 100%', async () => {
+    it('setAllocationPoints fails when sum is more than 1000000', async () => {
         await expect(
             minter.setAllocationPoints(
                 [staker1Addr, staker2Addr, staker3Addr],
-                ['50', '40', '30']
+                ['500000', '400000', '300000']
             )
-        ).to.revertedWith('sum must be less than 100%');
+        ).to.revertedWith('sum must be less than 1000000');
     });
 
     it('setAllocationPoints fails when called not for staker', async () => {
