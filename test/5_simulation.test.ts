@@ -347,7 +347,7 @@ describe('Simulation', function () {
 
         await minter.setAllocationPoints(
             [token0.address, ethers.constants.AddressZero],
-            ['70', '30']
+            ['700000', '300000']
         );
 
         for (var acc of accounts.slice(1, accountsNumber + 1)) {
