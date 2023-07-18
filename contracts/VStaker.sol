@@ -525,11 +525,9 @@ contract VStaker is IVStaker {
      * @param who The user's address
      */
     function _updateEveryStateBefore(address who) private {
-        address lpToken;
         uint lpStakesNumber = lpStakes[who].length;
         for (uint i = 0; i < lpStakesNumber; ++i) {
-            lpToken = lpStakes[who][i].lpToken;
-            _updateStateBefore(who, lpToken);
+            _updateStateBefore(who, lpStakes[who][i].lpToken);
         }
     }
 
