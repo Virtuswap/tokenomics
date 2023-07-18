@@ -214,15 +214,6 @@ contract VChainMinter is IVChainMinter, Ownable {
             _epochTransition();
 
         for (uint i = 0; i < rewardTokens.length; ++i) {
-            if (rewardTokens[i] == vrsw) {
-                StakerInfo memory stakerInfo = stakers[pool];
-                _updateStakerInfo(
-                    stakerInfo,
-                    allocationPoints[pool],
-                    _availableTokens()
-                );
-                stakers[pool] = stakerInfo;
-            }
             SafeERC20.safeTransfer(IERC20(rewardTokens[i]), to, amounts[i]);
             emit TransferRewards(to, pool, rewardTokens[i], amounts[i]);
         }
