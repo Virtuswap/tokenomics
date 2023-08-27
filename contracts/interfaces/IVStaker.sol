@@ -12,8 +12,15 @@ interface IVStaker {
      * @notice Emitted when who stakes amount of VRSW tokens.
      * @param who Address of the account that stakes the tokens.
      * @param amount Amount of VRSW tokens being staked.
+     * @param startTs start timestamp of the current position
+     * @param discountFactor discount factor for the current position equals exp(-r * stakeTime)  used in formula (3) in Virtuswap Tokenomics Whitepaper
      */
-    event StakeVrsw(address indexed who, uint256 amount);
+    event StakeVrsw(
+        address indexed who,
+        uint256 amount,
+        uint128 startTs,
+        uint256 discountFactor
+    );
 
     /**
      * @notice Emitted when who stakes amount of LP tokens.
@@ -47,8 +54,16 @@ interface IVStaker {
      * @param who Address of the account that locks the tokens.
      * @param amount Amount of VRSW tokens being locked.
      * @param lockDuration Duration in seconds for which the tokens are locked.
-     */
-    event LockVrsw(address indexed who, uint256 amount, uint128 lockDuration);
+     * @param startTs start timestamp of the current position
+     * @param discountFactor discount factor for the current position equals exp(-r * stakeTime)  used in formula (3) in Virtuswap Tokenomics Whitepaper
+     **/
+    event LockVrsw(
+        address indexed who,
+        uint256 amount,
+        uint128 lockDuration,
+        uint128 startTs,
+        uint256 discountFactor
+    );
 
     /**
      * @notice Emitted when who locks amount of staked VRSW tokens for lockDuration seconds.
@@ -59,7 +74,9 @@ interface IVStaker {
     event LockStakedVrsw(
         address indexed who,
         uint256 amount,
-        uint128 lockDuration
+        uint128 lockDuration,
+        uint128 startTs,
+        uint256 discountFactor
     );
 
     event MuChanged(
