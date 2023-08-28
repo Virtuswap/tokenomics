@@ -22,14 +22,6 @@ describe('vGlobalMinter 1', function () {
         );
     });
 
-    it('cannot deploy globalMinter with emission timestamp in the past', async () => {
-        const minterFactory = await ethers.getContractFactory('VGlobalMinter');
-        await mine();
-        await expect(
-            minterFactory.deploy(await time.latest(), vrsw.address)
-        ).to.revertedWith('invalid emission start timestamp');
-    });
-
     it('cannot deploy globalMinter with zero vrsw token', async () => {
         const minterFactory = await ethers.getContractFactory('VGlobalMinter');
         await mine();

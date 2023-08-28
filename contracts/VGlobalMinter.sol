@@ -55,10 +55,6 @@ contract VGlobalMinter is IVGlobalMinter, Ownable {
      * @param _vrsw Address of VRSW token
      */
     constructor(uint32 _emissionStartTs, address _vrsw) {
-        require(
-            _emissionStartTs > block.timestamp,
-            "invalid emission start timestamp"
-        );
         require(_vrsw != address(0), "zero address");
         emissionStartTs = _emissionStartTs;
         lockedBalance = 5e8 * 1e18;
