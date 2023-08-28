@@ -529,11 +529,8 @@ describe('vChainMinter: allocation points', function () {
         const stake2 = await minter.stakers(staker2Addr);
         const stake3 = await minter.stakers(staker3Addr);
         expect(stake1.totalAllocated).to.be.equal('0');
-        expect(stake1.lastUpdated).to.be.above('0');
         expect(stake2.totalAllocated).to.be.equal('0');
-        expect(stake2.lastUpdated).to.be.above('0');
         expect(stake3.totalAllocated).to.be.equal('0');
-        expect(stake3.lastUpdated).to.be.equal('0');
         const allocationPoints1 = await minter.allocationPoints(staker1Addr);
         const allocationPoints2 = await minter.allocationPoints(staker2Addr);
         const allocationPoints3 = await minter.allocationPoints(staker3Addr);
@@ -552,11 +549,8 @@ describe('vChainMinter: allocation points', function () {
         const stake2 = await minter.stakers(staker2Addr);
         const stake3 = await minter.stakers(staker3Addr);
         expect(stake1.totalAllocated).to.be.above('0');
-        expect(stake1.lastUpdated).to.be.above('0');
         expect(stake2.totalAllocated).to.be.above('0');
-        expect(stake2.lastUpdated).to.be.above('0');
         expect(stake3.totalAllocated).to.be.equal('0');
-        expect(stake3.lastUpdated).to.be.above('0');
         const allocationPoints1 = await minter.allocationPoints(staker1Addr);
         const allocationPoints2 = await minter.allocationPoints(staker2Addr);
         const allocationPoints3 = await minter.allocationPoints(staker3Addr);

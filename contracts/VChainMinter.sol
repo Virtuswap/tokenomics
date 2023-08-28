@@ -17,8 +17,7 @@ import "./VeVrsw.sol";
 contract VChainMinter is IVChainMinter, Ownable {
     struct StakerInfo {
         uint128 totalAllocated; // Total amount of VRSW tokens allocated to the staker
-        uint128 lastUpdated; // Timestamp of the last update to the staker info
-        uint256 lastAvailable; // The snapshot of the availableTokens
+        uint128 lastAvailable; // The snapshot of the availableTokens
     }
 
     struct PartnerTokenInfo {
@@ -372,20 +371,11 @@ contract VChainMinter is IVChainMinter, Ownable {
         uint256 _allocationPoints,
         uint256 _tokensAvailable
     ) private view {
-        uint256 _emissionStartTs = emissionStartTs;
-        if (
-            stakerInfo.lastUpdated > 0 &&
-            block.timestamp > stakerInfo.lastUpdated
-        ) {
-            stakerInfo.totalAllocated += uint128(
-                ((_tokensAvailable - stakerInfo.lastAvailable) *
-                    uint128(_allocationPoints)) / ALLOCATION_POINTS_FACTOR
-            );
-            stakerInfo.lastAvailable = _tokensAvailable;
-        }
-        stakerInfo.lastUpdated = uint128(
-            Math.max(block.timestamp, _emissionStartTs)
+        stakerInfo.totalAllocated += uint128(
+            ((_tokensAvailable - stakerInfo.lastAvailable) *
+                uint128(_allocationPoints)) / ALLOCATION_POINTS_FACTOR
         );
+        stakerInfo.lastAvailable = uint128(_tokensAvailable);
     }
 
     /**
