@@ -95,6 +95,10 @@ contract VStaker is IVStaker {
     // start of VRSW emission in seconds
     uint256 public immutable emissionStartTs;
 
+    address public immutable oldStaker;
+
+    mapping(address => uint256) public positionMigrationCounter;
+
     modifier notBefore(uint256 timestamp) {
         require(block.timestamp >= timestamp, "too early");
         _;
@@ -122,8 +126,10 @@ contract VStaker is IVStaker {
         address _vrswToken,
         address _minter,
         address _tokenomicsParams,
-        address _vPairFactory
+        address _vPairFactory,
+        address _oldStaker
     ) {
+        oldStaker = _oldStaker;
         minter = _minter;
         vrswToken = _vrswToken;
         tokenomicsParams = _tokenomicsParams;
@@ -465,11 +471,7 @@ contract VStaker is IVStaker {
             VrswStake(
                 uint128(block.timestamp),
                 lockDuration,
-                exp(
-                    IVTokenomicsParams(tokenomicsParams).r().mul(
-                        sd(-int256(block.timestamp - emissionStartTs) * 1e18)
-                    )
-                ),
+                _calculateDiscountFactor(senderStakes.length),
                 sd(int256(amount))
             )
         );
@@ -503,18 +505,7 @@ contract VStaker is IVStaker {
             oldStake
                 .amount
                 .mul(oldStake.discountFactor)
-                .add(
-                    sd(int256(amount)).mul(
-                        exp(
-                            IVTokenomicsParams(tokenomicsParams).r().mul(
-                                sd(
-                                    -int256(block.timestamp - emissionStartTs) *
-                                        1e18
-                                )
-                            )
-                        )
-                    )
-                )
+                .add(sd(int256(amount)).mul(_calculateDiscountFactor(0)))
                 .div(oldStake.amount.add(sd(int256(amount)))),
             oldStake.amount.add(sd(int256(amount)))
         );
@@ -721,5 +712,38 @@ contract VStaker is IVStaker {
                 vrswMultiplier.pow(IVTokenomicsParams(tokenomicsParams).beta())
             );
         _totalMu = totalMu[lpToken].add(_mu.sub(mu[who][lpToken]));
+    }
+
+    function _calculateDiscountFactor(
+        uint256 position
+    ) private returns (SD59x18) {
+        if (position == 0 || positionMigrationCounter[msg.sender] < position) {
+            (bool success, bytes memory result) = oldStaker.staticcall(
+                abi.encodeWithSignature(
+                    "vrswStakes(address,uint256)",
+                    msg.sender,
+                    position
+                )
+            );
+            if (success) {
+                VrswStake memory oldVrswStake = abi.decode(result, (VrswStake));
+                if (position > 0) {
+                    ++positionMigrationCounter[msg.sender];
+                    return oldVrswStake.discountFactor;
+                } else if (
+                    position == 0 &&
+                    unwrap(oldVrswStake.amount) > 0 &&
+                    unwrap(vrswStakes[msg.sender][0].discountFactor) == 0
+                ) {
+                    return oldVrswStake.discountFactor;
+                }
+            }
+        }
+        return
+            exp(
+                IVTokenomicsParams(tokenomicsParams).r().mul(
+                    sd(-int256(block.timestamp - emissionStartTs) * 1e18)
+                )
+            );
     }
 }

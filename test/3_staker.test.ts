@@ -56,10 +56,12 @@ describe('vStaker (without veVRSW)', function () {
                     vrsw.address,
                     minter.address,
                     tokenomicsParams.address,
-                    await (await ethers.getContract('staker')).vPairFactory()
+                    await (await ethers.getContract('staker')).vPairFactory(),
+                    tokenomicsParams.address,
                 )
             ).address
         );
+
         await minter.setStaker(staker.address);
         expect(await minter.veVrsw()).to.be.equal(ethers.constants.AddressZero);
 
@@ -373,8 +375,10 @@ describe('vStaker', function () {
     let token1: Token1;
     let token2: Token2;
     let staker: VStaker;
+    let newStaker: VStaker;
     let accounts: SignerWithAddress[];
     let minter: VChainMinter;
+    let newMinter: VChainMinter;
     let globalMinter: VGlobalMinter;
     let tokenomicsParams: VTokenomicsParams;
 
@@ -391,6 +395,32 @@ describe('vStaker', function () {
         globalMinter = await ethers.getContract('globalMinter');
         vrsw = await ethers.getContractAt('Vrsw', await minter.vrsw());
         veVrsw = await ethers.getContractAt('VeVrsw', await minter.veVrsw());
+        const stakerFactory = await ethers.getContractFactory('VStaker');
+        const minterFactory = await ethers.getContractFactory('VChainMinter');
+        newMinter = await ethers.getContractAt(
+            'VChainMinter',
+            (
+                await minterFactory.deploy(
+                    await globalMinter.emissionStartTs(),
+                    tokenomicsParams.address,
+                    vrsw.address,
+                    false
+                )
+            ).address
+        );
+        newStaker = await ethers.getContractAt(
+            'VStaker',
+            (
+                await stakerFactory.deploy(
+                    vrsw.address,
+                    newMinter.address,
+                    tokenomicsParams.address,
+                    await (await ethers.getContract('staker')).vPairFactory(),
+                    staker.address,
+                )
+            ).address
+        );
+        await newMinter.setStaker(newStaker.address);
 
         // approve
         await token0.approve(staker.address, ethers.utils.parseEther('1000'));
@@ -398,7 +428,9 @@ describe('vStaker', function () {
             .connect(accounts[1])
             .approve(staker.address, ethers.utils.parseEther('1000'));
         await vrsw.approve(staker.address, ethers.utils.parseEther('1000'));
+        await vrsw.approve(newStaker.address, ethers.utils.parseEther('1000'));
         await vrsw.approve(minter.address, ethers.utils.parseEther('10000000'));
+        await vrsw.approve(newMinter.address, ethers.utils.parseEther('10000000'));
 
         // set allocation points for new staker and default staker
         await minter.setAllocationPoints(
@@ -452,6 +484,14 @@ describe('vStaker', function () {
         );
         await globalMinter.arbitraryTransfer(
             accounts[1].address,
+            ethers.utils.parseEther('1000')
+        );
+        await globalMinter.arbitraryTransfer(
+            accounts[2].address,
+            ethers.utils.parseEther('1000')
+        );
+        await globalMinter.arbitraryTransfer(
+            accounts[3].address,
             ethers.utils.parseEther('1000')
         );
     });
@@ -1272,6 +1312,81 @@ describe('vStaker', function () {
                 vrsw.address
             )
         ).to.be.equal(totalVrswBefore);
+    });
+
+    it('vrsw stake migration works 1', async () => {
+        const amount = ethers.utils.parseEther('10');
+        await newStaker.stakeVrsw(amount);
+        const vrswStakeAfter = await newStaker.vrswStakes(accounts[0].address, 0);
+        const oldVrswStake = await staker.vrswStakes(accounts[0].address, 0);
+        expect(vrswStakeAfter.discountFactor).to.be.equal(oldVrswStake.discountFactor);
+        
+    });
+
+    it('vrsw stake migration works 2', async () => {
+        const amount = ethers.utils.parseEther('10');
+        await staker.unstakeVrsw((await staker.vrswStakes(accounts[0].address, 0)).amount)
+        await newStaker.stakeVrsw(amount);
+        const vrswStakeAfter = await newStaker.vrswStakes(accounts[0].address, 0);
+        const oldVrswStake = await staker.vrswStakes(accounts[0].address, 0);
+        expect(vrswStakeAfter.discountFactor).to.be.not.equal(oldVrswStake.discountFactor);
+        
+    });
+
+    it('vrsw stake migration works 3', async () => {
+        const amount = ethers.utils.parseEther('10');
+        await vrsw.connect(accounts[2]).approve(newStaker.address, ethers.utils.parseEther('1000'));
+        await newStaker.connect(accounts[2]).stakeVrsw(amount);
+        const vrswStakeAfter = await newStaker.vrswStakes(accounts[0].address, 0);
+        expect((await staker.vrswStakes(accounts[2].address, 0)).discountFactor).to.be.equal('0');
+        expect(vrswStakeAfter.discountFactor).to.be.above('0');
+        
+    });
+
+    it('vrsw stake migration works 4', async () => {
+        const amount = ethers.utils.parseEther('10');
+        await newStaker.unstakeVrsw((await newStaker.vrswStakes(accounts[0].address, 0)).amount);
+        await newStaker.stakeVrsw(amount);
+        const vrswStakeAfter = await newStaker.vrswStakes(accounts[0].address, 0);
+        const oldVrswStake = await staker.vrswStakes(accounts[0].address, 0);
+        expect(vrswStakeAfter.discountFactor).to.be.not.equal(oldVrswStake.discountFactor);
+        
+    });
+
+    it('vrsw position migration works 1', async () => {
+        const amount = ethers.utils.parseEther('10');
+        await staker.lockVrsw(amount, '100000');
+        await time.setNextBlockTimestamp(await time.latest() + 50000);
+        await newStaker.lockVrsw(amount, '1000');
+        const vrswStakeAfter = await newStaker.vrswStakes(accounts[0].address, 1);
+        const oldVrswStake = await staker.vrswStakes(accounts[0].address, 1);
+        expect(vrswStakeAfter.discountFactor).to.be.equal(oldVrswStake.discountFactor);
+        expect(await newStaker.positionMigrationCounter(accounts[0].address)).to.be.equal('1');
+        await staker.lockVrsw(amount, '100000');
+        await time.setNextBlockTimestamp(await time.latest() + 50000);
+        await newStaker.lockVrsw(amount, '1000');
+        const vrswStakeAfter2 = await newStaker.vrswStakes(accounts[0].address, 2);
+        const oldVrswStake2 = await staker.vrswStakes(accounts[0].address, 2);
+        expect(vrswStakeAfter2.discountFactor).to.be.equal(oldVrswStake2.discountFactor);
+        expect(await newStaker.positionMigrationCounter(accounts[0].address)).to.be.equal('2');
+    });
+
+    it('vrsw position migration works 2', async()  =>{
+        const amount = ethers.utils.parseEther('10');
+        await vrsw.connect(accounts[3]).approve(newStaker.address, ethers.utils.parseEther('1000'));
+        await newStaker.connect(accounts[3]).lockVrsw(amount, '1000');
+        const vrswStakeAfter = await newStaker.connect(accounts[3]).vrswStakes(accounts[3].address, 1);
+        expect(vrswStakeAfter.discountFactor).to.be.above('0');
+        expect(await newStaker.connect(accounts[3]).positionMigrationCounter(accounts[3].address)).to.be.equal('0');
+    });
+
+    it('vrsw position migration works 3', async()  =>{
+        const amount = ethers.utils.parseEther('10');
+        await time.setNextBlockTimestamp(await time.latest() + 50000);
+        await newStaker.unlockVrsw(accounts[0].address, '2');
+        expect(await newStaker.positionMigrationCounter(accounts[0].address)).to.be.equal('2');
+        await newStaker.lockVrsw(amount, '1000');
+        expect(await newStaker.positionMigrationCounter(accounts[0].address)).to.be.equal('2');
     });
 });
 
