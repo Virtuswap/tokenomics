@@ -370,7 +370,7 @@ contract VChainMinter is IVChainMinter, Ownable {
         StakerInfo memory stakerInfo,
         uint256 _allocationPoints,
         uint256 _tokensAvailable
-    ) private view {
+    ) private pure {
         stakerInfo.totalAllocated += uint128(
             ((_tokensAvailable - stakerInfo.lastAvailable) *
                 uint128(_allocationPoints)) / ALLOCATION_POINTS_FACTOR
