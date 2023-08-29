@@ -145,7 +145,7 @@ contract VStaker is IVStaker {
             lpStakes[msg.sender].push(LpStake(address(0), ZERO));
 
         _updateEveryStateBefore(msg.sender);
-        _stakeUnlocked(msg.sender, amount);
+        VrswStake memory stake = _stakeUnlocked(msg.sender, amount);
         lpStakes[msg.sender][0].amount = lpStakes[msg.sender][0].amount.add(
             sd(int256(amount))
         );
@@ -158,7 +158,12 @@ contract VStaker is IVStaker {
             amount
         );
         IVChainMinter(minter).mintVeVrsw(msg.sender, amount);
-        emit StakeVrsw(msg.sender, amount);
+        emit StakeVrsw(
+            msg.sender,
+            amount,
+            stake.startTs,
+            uint256(unwrap(stake.discountFactor))
+        );
     }
 
     /// @inheritdoc IVStaker
@@ -310,7 +315,7 @@ contract VStaker is IVStaker {
         lpStakes[msg.sender][0].amount = lpStakes[msg.sender][0].amount.add(
             sd(int256(amount))
         );
-        _newStakePosition(amount, lockDuration);
+        VrswStake memory stake = _newStakePosition(amount, lockDuration);
         _updateEveryStateAfter(msg.sender);
 
         SafeERC20.safeTransferFrom(
@@ -320,7 +325,13 @@ contract VStaker is IVStaker {
             amount
         );
         IVChainMinter(minter).mintVeVrsw(msg.sender, amount);
-        emit LockVrsw(msg.sender, amount, lockDuration);
+        emit LockVrsw(
+            msg.sender,
+            amount,
+            lockDuration,
+            stake.startTs,
+            uint256(unwrap(stake.discountFactor))
+        );
     }
 
     /// @inheritdoc IVStaker
@@ -347,9 +358,15 @@ contract VStaker is IVStaker {
 
         _updateEveryStateBefore(msg.sender);
         senderStakes[0].amount = senderStakes[0].amount.sub(sd(int256(amount)));
-        _newStakePosition(amount, lockDuration);
+        VrswStake memory stake = _newStakePosition(amount, lockDuration);
         _updateEveryStateAfter(msg.sender);
-        emit LockStakedVrsw(msg.sender, amount, lockDuration);
+        emit LockStakedVrsw(
+            msg.sender,
+            amount,
+            lockDuration,
+            stake.startTs,
+            uint256(unwrap(stake.discountFactor))
+        );
     }
 
     /// @inheritdoc IVStaker
@@ -465,16 +482,18 @@ contract VStaker is IVStaker {
      * @param amount Amount of VRSW tokens to stake
      * @param lockDuration Duration of the lock period for the stake
      */
-    function _newStakePosition(uint256 amount, uint128 lockDuration) private {
+    function _newStakePosition(
+        uint256 amount,
+        uint128 lockDuration
+    ) private returns (VrswStake memory stake) {
         VrswStake[] storage senderStakes = vrswStakes[msg.sender];
-        senderStakes.push(
-            VrswStake(
-                uint128(block.timestamp),
-                lockDuration,
-                _calculateDiscountFactor(senderStakes.length),
-                sd(int256(amount))
-            )
+        stake = VrswStake(
+            uint128(block.timestamp),
+            lockDuration,
+            _calculateDiscountFactor(senderStakes.length),
+            sd(int256(amount))
         );
+        senderStakes.push(stake);
     }
 
     /**
@@ -482,7 +501,10 @@ contract VStaker is IVStaker {
      * @param who The staker address
      * @param amount Amount of VRSW tokens to stake
      */
-    function _stakeUnlocked(address who, uint256 amount) private {
+    function _stakeUnlocked(
+        address who,
+        uint256 amount
+    ) private returns (VrswStake memory) {
         VrswStake[] storage senderStakes = vrswStakes[who];
 
         if (senderStakes.length == 0) {
@@ -509,6 +531,8 @@ contract VStaker is IVStaker {
                 .div(oldStake.amount.add(sd(int256(amount)))),
             oldStake.amount.add(sd(int256(amount)))
         );
+
+        return senderStakes[0];
     }
 
     /**
