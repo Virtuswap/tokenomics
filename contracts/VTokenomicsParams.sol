@@ -7,26 +7,31 @@ import "@openzeppelin/contracts/access/Ownable.sol";
 import "./interfaces/IVTokenomicsParams.sol";
 
 contract VTokenomicsParams is IVTokenomicsParams, Ownable {
-    // Ten years in seconds starting from 2023
-    uint256 public constant TEN_YEARS = (365 * 8 + 366 * 2) * 24 * 60 * 60;
-
     // parameters used in formula (3) in Virtuswap Tokenomics Whitepaper
     SD59x18 public override r;
     SD59x18 public override b;
     SD59x18 public override alpha;
     SD59x18 public override beta;
     SD59x18 public override gamma;
+    SD59x18 public override lpBaseRewardsShare;
+    SD59x18 public override lpBaseRewardsShareFactor;
 
     /**
      * @dev Initializes the contract with default values for the tokenomics parameters.
      */
     constructor() {
-        r = SD59x18.wrap((0.693 * 1e18) / int256(TEN_YEARS));
-        b = SD59x18.wrap(1e18 / int256(TEN_YEARS));
-        alpha = UNIT;
+        r = SD59x18.wrap(102013985000);
+        b = SD59x18.wrap(760618230000);
+        alpha = SD59x18.wrap(5e17);
         gamma = UNIT;
-        beta = SD59x18.wrap(0.5e18);
+        beta = SD59x18.wrap(5e17);
+        lpBaseRewardsShare = SD59x18.wrap(30e18);
+        lpBaseRewardsShareFactor = SD59x18.wrap(100e18);
         emit UpdateTokenomicsParams(r, b, alpha, beta, gamma);
+        emit UpdateLpBaseRewardsShare(
+            lpBaseRewardsShare,
+            lpBaseRewardsShareFactor
+        );
     }
 
     /// @inheritdoc IVTokenomicsParams
@@ -43,5 +48,17 @@ contract VTokenomicsParams is IVTokenomicsParams, Ownable {
         beta = _beta;
         gamma = _gamma;
         emit UpdateTokenomicsParams(_r, _b, _alpha, _beta, _gamma);
+    }
+
+    function updateLpBaseRewardsShare(
+        SD59x18 _lpBaseRewardsShare,
+        SD59x18 _lpBaseRewardsShareFactor
+    ) external override onlyOwner {
+        lpBaseRewardsShare = _lpBaseRewardsShare;
+        lpBaseRewardsShareFactor = _lpBaseRewardsShareFactor;
+        emit UpdateLpBaseRewardsShare(
+            _lpBaseRewardsShare,
+            _lpBaseRewardsShareFactor
+        );
     }
 }

@@ -25,6 +25,14 @@ interface IVTokenomicsParams {
     );
 
     /**
+     * @dev Emitted when the lpBaseShare and lpBaseShareFactor are updated.
+     */
+    event UpdateLpBaseRewardsShare(
+        SD59x18 lpBaseRewardsShare,
+        SD59x18 lpBaseRewardsShareFactor
+    );
+
+    /**
      * @dev Allows the owner to update the tokenomics parameters.
      */
     function updateParams(
@@ -33,6 +41,14 @@ interface IVTokenomicsParams {
         SD59x18 _alpha,
         SD59x18 _beta,
         SD59x18 _gamma
+    ) external;
+
+    /**
+     * @dev Allows the owner to update the lp base rewards share parameters.
+     */
+    function updateLpBaseRewardsShare(
+        SD59x18 _lpBaseRewardsShare,
+        SD59x18 _lpBaseRewardsShareFactor
     ) external;
 
     function r() external view returns (SD59x18);
@@ -44,4 +60,8 @@ interface IVTokenomicsParams {
     function beta() external view returns (SD59x18);
 
     function gamma() external view returns (SD59x18);
+
+    function lpBaseRewardsShare() external view returns (SD59x18);
+
+    function lpBaseRewardsShareFactor() external view returns (SD59x18);
 }

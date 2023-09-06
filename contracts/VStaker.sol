@@ -45,11 +45,18 @@ contract VStaker is IVStaker {
         public rewards;
 
     /**
-     * @dev The snapshot of rewardsCoefficintGlobal at the time of the last update.
+     * @dev The snapshot of extraRewardsCoefficintGlobal at the time of the last update.
      * [wallet][lpToken][rewardToken]
      */
     mapping(address => mapping(address => mapping(address => SD59x18)))
-        public rewardsCoefficient;
+        public extraRewardsCoefficient;
+
+    /**
+     * @dev The snapshot of baseRewardsCoefficintGlobal at the time of the last update.
+     * [wallet][lpToken][rewardToken]
+     */
+    mapping(address => mapping(address => mapping(address => SD59x18)))
+        public baseRewardsCoefficient;
 
     /**
      * @dev The VRSW stakes of each user.
@@ -64,13 +71,28 @@ contract VStaker is IVStaker {
     mapping(address => SD59x18) public totalMu;
 
     /**
+     * @dev Sum of all user's lp tokens staked for a specified pool.
+     * [pool]
+     */
+    mapping(address => SD59x18) public totalLpStaked;
+
+    /**
      * @dev Coefficient needed to calculate accrued rewards. It's equal to:
      * SUM(vrswEmission(t_{i - 1}, t_{i}) / totalMu(t_i)), where t_i is the
      * timestamp when totalMu has changed.
      * [lpToken][rewardToken]
      */
     mapping(address => mapping(address => SD59x18))
-        public rewardsCoefficientGlobal;
+        public extraRewardsCoefficientGlobal;
+
+    /**
+     * @dev Coefficient needed to calculate accrued rewards. It's equal to:
+     * SUM(vrswEmission(t_{i - 1}, t_{i}) / totalLpStaked(t_i)), where t_i is the
+     * timestamp when totalMu has changed.
+     * [lpToken][rewardToken]
+     */
+    mapping(address => mapping(address => SD59x18))
+        public baseRewardsCoefficientGlobal;
 
     /**
      * @dev The total amount of VRSW tokens available for distribution as rewards
@@ -149,6 +171,11 @@ contract VStaker is IVStaker {
         lpStakes[msg.sender][0].amount = lpStakes[msg.sender][0].amount.add(
             sd(int256(amount))
         );
+        unchecked {
+            totalLpStaked[address(0)] = totalLpStaked[address(0)].add(
+                sd(int256(amount))
+            );
+        }
         _updateEveryStateAfter(msg.sender);
 
         SafeERC20.safeTransferFrom(
@@ -189,6 +216,11 @@ contract VStaker is IVStaker {
             lpStakes[msg.sender][lpStakeIdx].amount = lpStakes[msg.sender][
                 lpStakeIdx
             ].amount.add(sd(int256(amount)));
+        }
+        unchecked {
+            totalLpStaked[lpToken] = totalLpStaked[lpToken].add(
+                sd(int256(amount))
+            );
         }
         _updateStateAfter(msg.sender, lpToken);
 
@@ -247,6 +279,11 @@ contract VStaker is IVStaker {
         _updateStateBefore(msg.sender, lpToken);
         SD59x18 newAmount = currentAmount.sub(sd(int256(amount)));
         lpStakes[msg.sender][lpStakeIdx].amount = newAmount;
+        unchecked {
+            totalLpStaked[lpToken] = totalLpStaked[lpToken].sub(
+                sd(int256(amount))
+            );
+        }
         _updateStateAfter(msg.sender, lpToken);
 
         if (unwrap(newAmount) == 0) {
@@ -281,6 +318,11 @@ contract VStaker is IVStaker {
         lpStakes[msg.sender][0].amount = lpStakes[msg.sender][0].amount.sub(
             sd(int256(amount))
         );
+        unchecked {
+            totalLpStaked[address(0)] = totalLpStaked[address(0)].sub(
+                sd(int256(amount))
+            );
+        }
         _updateEveryStateAfter(msg.sender);
 
         SafeERC20.safeTransfer(IERC20(vrswToken), msg.sender, amount);
@@ -316,6 +358,11 @@ contract VStaker is IVStaker {
             sd(int256(amount))
         );
         VrswStake memory stake = _newStakePosition(amount, lockDuration);
+        unchecked {
+            totalLpStaked[address(0)] = totalLpStaked[address(0)].add(
+                sd(int256(amount))
+            );
+        }
         _updateEveryStateAfter(msg.sender);
 
         SafeERC20.safeTransferFrom(
@@ -584,8 +631,10 @@ contract VStaker is IVStaker {
         for (uint i = 0; i < rewardTokens.length; ++i) {
             (
                 totalRewardTokensAvailable[lpToken][rewardTokens[i]],
-                rewardsCoefficient[who][lpToken][rewardTokens[i]],
-                rewardsCoefficientGlobal[lpToken][rewardTokens[i]],
+                extraRewardsCoefficient[who][lpToken][rewardTokens[i]],
+                extraRewardsCoefficientGlobal[lpToken][rewardTokens[i]],
+                baseRewardsCoefficient[who][lpToken][rewardTokens[i]],
+                baseRewardsCoefficientGlobal[lpToken][rewardTokens[i]],
                 rewards[who][lpToken][rewardTokens[i]]
             ) = _calculateStateBefore(who, lpToken, rewardTokens[i]);
         }
@@ -623,8 +672,8 @@ contract VStaker is IVStaker {
         address rewardToken,
         bool isStateChanged
     ) private view returns (uint256) {
-        (, , , SD59x18 _senderRewards) = isStateChanged
-            ? (ZERO, ZERO, ZERO, rewards[who][lpToken][rewardToken])
+        (, , , , , SD59x18 _senderRewards) = isStateChanged
+            ? (ZERO, ZERO, ZERO, ZERO, ZERO, rewards[who][lpToken][rewardToken])
             : _calculateStateBefore(who, lpToken, rewardToken);
         return uint256(unwrap(_senderRewards));
     }
@@ -643,8 +692,10 @@ contract VStaker is IVStaker {
         view
         returns (
             SD59x18 _totalRewardTokensAvailable,
-            SD59x18 _senderRewardsCoefficient,
-            SD59x18 _rewardsCoefficientGlobal,
+            SD59x18 _senderExtraRewardsCoefficient,
+            SD59x18 _extraRewardsCoefficientGlobal,
+            SD59x18 _senderBaseRewardsCoefficient,
+            SD59x18 _baseRewardsCoefficientGlobal,
             SD59x18 _senderRewards
         )
     {
@@ -659,34 +710,66 @@ contract VStaker is IVStaker {
                     )
                 )
             );
-            _rewardsCoefficientGlobal = rewardsCoefficientGlobal[lpToken][
-                rewardToken
-            ].add(
-                    (
-                        _totalRewardTokensAvailable.sub(
-                            totalRewardTokensAvailable[lpToken][rewardToken]
-                        )
-                    ).div(totalMu[lpToken])
-                );
-            _senderRewardsCoefficient = _rewardsCoefficientGlobal;
+
+            SD59x18 rewardTokensDiff = _totalRewardTokensAvailable.sub(
+                totalRewardTokensAvailable[lpToken][rewardToken]
+            );
+
+            SD59x18 lpBaseRewardsShare = IVTokenomicsParams(tokenomicsParams)
+                .lpBaseRewardsShare();
+            SD59x18 lpBaseRewardsShareFactor = IVTokenomicsParams(
+                tokenomicsParams
+            ).lpBaseRewardsShareFactor();
+
+            SD59x18 baseRewards = rewardTokensDiff.mul(lpBaseRewardsShare).div(
+                lpBaseRewardsShareFactor
+            );
+            SD59x18 extraRewards = rewardTokensDiff.sub(baseRewards);
+
+            _baseRewardsCoefficientGlobal = baseRewardsCoefficientGlobal[
+                lpToken
+            ][rewardToken].add(baseRewards.div(totalLpStaked[lpToken]));
+            _extraRewardsCoefficientGlobal = extraRewardsCoefficientGlobal[
+                lpToken
+            ][rewardToken].add(extraRewards.div(totalMu[lpToken]));
+
+            _senderBaseRewardsCoefficient = _baseRewardsCoefficientGlobal;
+            _senderExtraRewardsCoefficient = _extraRewardsCoefficientGlobal;
+
             // you can learn more about the formula in Virtuswap Tokenomics Whitepaper
             _senderRewards = rewards[who][lpToken][rewardToken].add(
                 mu[who][lpToken].mul(
-                    _rewardsCoefficientGlobal.sub(
-                        rewardsCoefficient[who][lpToken][rewardToken]
+                    _extraRewardsCoefficientGlobal.sub(
+                        extraRewardsCoefficient[who][lpToken][rewardToken]
                     )
                 )
             );
+            if (
+                (lpToken == address(0) || lpStakeIndex[who][lpToken] != 0) &&
+                lpStakes[who].length > 0
+            ) {
+                _senderRewards = _senderRewards.add(
+                    lpStakes[who][lpStakeIndex[who][lpToken]].amount.mul(
+                        _baseRewardsCoefficientGlobal.sub(
+                            baseRewardsCoefficient[who][lpToken][rewardToken]
+                        )
+                    )
+                );
+            }
         } else {
             (
                 _totalRewardTokensAvailable,
-                _senderRewardsCoefficient,
-                _rewardsCoefficientGlobal,
+                _senderExtraRewardsCoefficient,
+                _extraRewardsCoefficientGlobal,
+                _senderBaseRewardsCoefficient,
+                _baseRewardsCoefficientGlobal,
                 _senderRewards
             ) = (
                 totalRewardTokensAvailable[lpToken][rewardToken],
-                rewardsCoefficient[who][lpToken][rewardToken],
-                rewardsCoefficientGlobal[lpToken][rewardToken],
+                extraRewardsCoefficient[who][lpToken][rewardToken],
+                extraRewardsCoefficientGlobal[lpToken][rewardToken],
+                baseRewardsCoefficient[who][lpToken][rewardToken],
+                baseRewardsCoefficientGlobal[lpToken][rewardToken],
                 rewards[who][lpToken][rewardToken]
             );
         }
@@ -715,7 +798,6 @@ contract VStaker is IVStaker {
                 )
             );
         }
-        mult = mult.add(UNIT);
     }
 
     /**
@@ -735,7 +817,9 @@ contract VStaker is IVStaker {
             .mul(
                 vrswMultiplier.pow(IVTokenomicsParams(tokenomicsParams).beta())
             );
-        _totalMu = totalMu[lpToken].add(_mu.sub(mu[who][lpToken]));
+        unchecked {
+            _totalMu = totalMu[lpToken].add(_mu.sub(mu[who][lpToken]));
+        }
     }
 
     function _calculateDiscountFactor(
@@ -755,7 +839,6 @@ contract VStaker is IVStaker {
                     ++positionMigrationCounter[msg.sender];
                     return oldVrswStake.discountFactor;
                 } else if (
-                    position == 0 &&
                     unwrap(oldVrswStake.amount) > 0 &&
                     unwrap(vrswStakes[msg.sender][0].discountFactor) == 0
                 ) {
