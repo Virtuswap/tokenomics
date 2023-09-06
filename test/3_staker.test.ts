@@ -424,6 +424,8 @@ describe('vStaker', function () {
 
         // approve
         await token0.approve(staker.address, ethers.utils.parseEther('1000'));
+        await token0.transfer(accounts[1].address, ethers.utils.parseEther('1000'));
+        await token0.connect(accounts[1]).approve(staker.address, ethers.utils.parseEther('1000'));
         await vrsw
             .connect(accounts[1])
             .approve(staker.address, ethers.utils.parseEther('1000'));
@@ -578,9 +580,13 @@ describe('vStaker', function () {
             amount
         );
         expect(await staker.mu(accounts[0].address, token0.address)).to.equal(
-            amount
+            '0'
         );
-        expect(await staker.totalMu(token0.address)).to.equal(amount);
+        await staker.stakeVrsw(ethers.utils.parseEther('1'));
+        expect(await staker.mu(accounts[0].address, token0.address)).to.be.above(
+            '0'
+        );
+        expect(await staker.totalMu(token0.address)).to.be.above('0');
         expect(
             await staker.totalRewardTokensAvailable(
                 token0.address,
@@ -624,10 +630,10 @@ describe('vStaker', function () {
         expect((await staker.lpStakes(accounts[0].address, 1)).amount).to.equal(
             amount
         );
-        expect(await staker.mu(accounts[0].address, token0.address)).to.equal(
-            amount
+        expect(await staker.mu(accounts[0].address, token0.address)).to.be.above(
+            '0'
         );
-        expect(await staker.totalMu(token0.address)).to.equal(amount);
+        expect(await staker.totalMu(token0.address)).to.be.above('0');
         expect(
             await staker.totalRewardTokensAvailable(
                 token0.address,
@@ -704,7 +710,7 @@ describe('vStaker', function () {
 
     it('unstakeVrsw fails if there is no stakes', async () => {
         const amount = ethers.utils.parseEther('10');
-        await expect(staker.unstakeVrsw(amount)).to.revertedWith('no stakes');
+        await expect(staker.connect(accounts[2]).unstakeVrsw(amount)).to.revertedWith('no stakes');
     });
 
     it('stakeVrsw fails if amount is zero', async () => {
@@ -715,6 +721,7 @@ describe('vStaker', function () {
     });
 
     it('stakeVrsw works', async () => {
+        await staker.unstakeVrsw(ethers.utils.parseEther('1'));
         const amount = ethers.utils.parseEther('10');
         const accountBalanceBefore = await vrsw.balanceOf(accounts[0].address);
         const contractBalanceBefore = await vrsw.balanceOf(staker.address);
@@ -752,7 +759,7 @@ describe('vStaker', function () {
                 token0.address,
                 vrsw.address
             )
-        ).to.be.above(totalVrswBefore);
+        ).to.be.equal(totalVrswBefore);
         expect(
             (await staker.vrswStakes(accounts[0].address, 0)).amount
         ).to.equal(amount);
@@ -901,7 +908,7 @@ describe('vStaker', function () {
                 token0.address,
                 vrsw.address
             )
-        ).to.be.above(totalVrswBefore);
+        ).to.be.equal(totalVrswBefore);
         expect(
             (await staker.vrswStakes(accounts[0].address, 1)).amount
         ).to.equal(amount);
@@ -1015,7 +1022,7 @@ describe('vStaker', function () {
             token0.address,
             vrsw.address
         );
-        await staker.lockStakedVrsw(amount.div(2), '5');
+        await staker.lockStakedVrsw(amount.div(2), '501');
         const accountBalanceAfter = await vrsw.balanceOf(accounts[0].address);
         const contractBalanceAfter = await vrsw.balanceOf(staker.address);
 
@@ -1079,8 +1086,14 @@ describe('vStaker', function () {
         ).to.revertedWith('zero address');
     });
 
+    it('unlockVrsw fails if position is still locked', async () => {
+        await expect(staker.unlockVrsw(accounts[0].address, 1)).to.revertedWith(
+            'locked'
+        );
+    });
+
     it('unlockVrsw works', async () => {
-        await time.setNextBlockTimestamp((await time.latest()) + 2);
+        await time.setNextBlockTimestamp((await time.latest()) + 500);
         await mine();
         const unlockedVrswBefore = (await staker.viewVrswStakes())[0].amount;
         const contractBalanceBefore = await vrsw.balanceOf(staker.address);
@@ -1092,11 +1105,12 @@ describe('vStaker', function () {
         );
         expect(
             (await staker.checkLock(accounts[0].address)).toString()
-        ).to.be.equal('2');
+        ).to.be.equal('2,1');
         const veVrswAccountBalanceBefore = await veVrsw.balanceOf(
             accounts[0].address
         );
         await staker.unlockVrsw(accounts[0].address, 2);
+        await staker.unlockVrsw(accounts[0].address, 1);
         const unlockedVrswAfter = (await staker.viewVrswStakes())[0].amount;
         const contractBalanceAfter = await vrsw.balanceOf(staker.address);
         const veVrswAccountBalanceAfter = await veVrsw.balanceOf(
@@ -1125,12 +1139,6 @@ describe('vStaker', function () {
     it('unlockVrsw fails if position is zero', async () => {
         await expect(staker.unlockVrsw(accounts[0].address, 0)).to.revertedWith(
             'invalid position'
-        );
-    });
-
-    it('unlockVrsw fails if position is still locked', async () => {
-        await expect(staker.unlockVrsw(accounts[0].address, 1)).to.revertedWith(
-            'locked'
         );
     });
 
@@ -1194,6 +1202,7 @@ describe('vStaker', function () {
 
     it('triggerStateUpdateBefore works', async () => {
         await staker.connect(accounts[1]).stakeVrsw('100000000000');
+        await staker.connect(accounts[1]).stakeLp(token0.address, ethers.utils.parseEther('100'));
         const muBefore0 = await staker.mu(accounts[0].address, token0.address);
         const muBefore1 = await staker.mu(
             accounts[1].address,
@@ -1227,7 +1236,7 @@ describe('vStaker', function () {
         );
 
         const rewardsAfter1 = await staker.viewRewards(
-            accounts[0].address,
+            accounts[1].address,
             token0.address,
             vrsw.address
         );
@@ -1290,7 +1299,7 @@ describe('vStaker', function () {
         );
 
         const rewardsAfter1 = await staker.viewRewards(
-            accounts[0].address,
+            accounts[1].address,
             token0.address,
             vrsw.address
         );

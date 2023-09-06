@@ -446,6 +446,23 @@ describe('Simulation', function () {
             await time.setNextBlockTimestamp(nextEpochStart);
         }
         for (var account of accounts.slice(1, accountsNumber + 1)) {
+            if (!(await token0.balanceOf(account.address)).isZero()) {
+                await staker
+                    .connect(account)
+                    .stakeLp(
+                        token0.address,
+                        '1'
+                    );
+            }
+            if (!(await vrsw.balanceOf(account.address)).isZero()) {
+                await staker
+                    .connect(account)
+                    .stakeVrsw(
+                        '1'
+                    );
+            }
+        }
+        for (var account of accounts.slice(1, accountsNumber + 1)) {
             await staker
                 .connect(account)
                 .unstakeLp(
