@@ -173,7 +173,7 @@ describe('vStaker (without veVRSW)', function () {
         const totalMuBefore = await staker.totalMu(
             ethers.constants.AddressZero
         );
-        const totalVrswBefore = await staker.totalRewardTokensAvailable(
+        const totalVrswBefore = await staker.totalExtraRewardTokensAvailable(
             ethers.constants.AddressZero,
             vrsw.address
         );
@@ -193,7 +193,7 @@ describe('vStaker (without veVRSW)', function () {
             totalMuBefore
         );
         expect(
-            await staker.totalRewardTokensAvailable(
+            await staker.totalExtraRewardTokensAvailable(
                 ethers.constants.AddressZero,
                 vrsw.address
             )
@@ -214,7 +214,7 @@ describe('vStaker (without veVRSW)', function () {
         const totalMuBefore = await staker.totalMu(
             ethers.constants.AddressZero
         );
-        const totalVrswBefore = await staker.totalRewardTokensAvailable(
+        const totalVrswBefore = await staker.totalExtraRewardTokensAvailable(
             ethers.constants.AddressZero,
             vrsw.address
         );
@@ -235,7 +235,7 @@ describe('vStaker (without veVRSW)', function () {
             totalMuBefore
         );
         expect(
-            await staker.totalRewardTokensAvailable(
+            await staker.totalExtraRewardTokensAvailable(
                 ethers.constants.AddressZero,
                 vrsw.address
             )
@@ -299,7 +299,7 @@ describe('vStaker (without veVRSW)', function () {
         const amount = ethers.utils.parseEther('10');
         const accountBalanceBefore = await vrsw.balanceOf(accounts[1].address);
         const contractBalanceBefore = await vrsw.balanceOf(staker.address);
-        const totalVrswBefore = await staker.totalRewardTokensAvailable(
+        const totalVrswBefore = await staker.totalExtraRewardTokensAvailable(
             ethers.constants.AddressZero,
             vrsw.address
         );
@@ -324,7 +324,7 @@ describe('vStaker (without veVRSW)', function () {
         );
         await mine();
         expect(
-            await staker.totalRewardTokensAvailable(
+            await staker.totalExtraRewardTokensAvailable(
                 ethers.constants.AddressZero,
                 vrsw.address
             )
@@ -503,7 +503,7 @@ describe('vStaker', function () {
         const contractBalanceBefore = await vrsw.balanceOf(minter.address);
         const muBefore = await staker.mu(accounts[0].address, token0.address);
         const totalMuBefore = await staker.totalMu(token0.address);
-        const totalVrswBefore = await staker.totalRewardTokensAvailable(
+        const totalVrswBefore = await staker.totalExtraRewardTokensAvailable(
             token0.address,
             vrsw.address
         );
@@ -530,7 +530,7 @@ describe('vStaker', function () {
         );
         expect(await staker.totalMu(token0.address)).to.equal(totalMuBefore);
         expect(
-            await staker.totalRewardTokensAvailable(
+            await staker.totalExtraRewardTokensAvailable(
                 token0.address,
                 vrsw.address
             )
@@ -588,7 +588,7 @@ describe('vStaker', function () {
         );
         expect(await staker.totalMu(token0.address)).to.be.above('0');
         expect(
-            await staker.totalRewardTokensAvailable(
+            await staker.totalExtraRewardTokensAvailable(
                 token0.address,
                 vrsw.address
             )
@@ -614,7 +614,7 @@ describe('vStaker', function () {
             accounts[0].address
         );
         const contractBalanceBefore = await token0.balanceOf(staker.address);
-        const totalVrswBefore = await staker.totalRewardTokensAvailable(
+        const totalVrswBefore = await staker.totalExtraRewardTokensAvailable(
             token0.address,
             vrsw.address
         );
@@ -635,7 +635,7 @@ describe('vStaker', function () {
         );
         expect(await staker.totalMu(token0.address)).to.be.above('0');
         expect(
-            await staker.totalRewardTokensAvailable(
+            await staker.totalExtraRewardTokensAvailable(
                 token0.address,
                 vrsw.address
             )
@@ -674,7 +674,7 @@ describe('vStaker', function () {
         const contractBalanceBefore = await vrsw.balanceOf(minter.address);
         const muBefore = await staker.mu(accounts[0].address, token0.address);
         const totalMuBefore = await staker.totalMu(token0.address);
-        const totalVrswBefore = await staker.totalRewardTokensAvailable(
+        const totalVrswBefore = await staker.totalExtraRewardTokensAvailable(
             token0.address,
             vrsw.address
         );
@@ -701,7 +701,7 @@ describe('vStaker', function () {
         );
         expect(await staker.totalMu(token0.address)).to.equal(totalMuBefore);
         expect(
-            await staker.totalRewardTokensAvailable(
+            await staker.totalExtraRewardTokensAvailable(
                 token0.address,
                 vrsw.address
             )
@@ -730,7 +730,7 @@ describe('vStaker', function () {
         );
         const muBefore = await staker.mu(accounts[0].address, token0.address);
         const totalMuBefore = await staker.totalMu(token0.address);
-        const totalVrswBefore = await staker.totalRewardTokensAvailable(
+        const totalVrswBefore = await staker.totalExtraRewardTokensAvailable(
             token0.address,
             vrsw.address
         );
@@ -755,7 +755,7 @@ describe('vStaker', function () {
         );
         expect(await staker.totalMu(token0.address)).to.above(totalMuBefore);
         expect(
-            await staker.totalRewardTokensAvailable(
+            await staker.totalExtraRewardTokensAvailable(
                 token0.address,
                 vrsw.address
             )
@@ -772,7 +772,7 @@ describe('vStaker', function () {
         const contractBalanceBefore = await vrsw.balanceOf(staker.address);
         const muBefore = await staker.mu(accounts[0].address, token0.address);
         const totalMuBefore = await staker.totalMu(token0.address);
-        const totalVrswBefore = await staker.totalRewardTokensAvailable(
+        const totalVrswBefore = await staker.totalExtraRewardTokensAvailable(
             token0.address,
             vrsw.address
         );
@@ -800,7 +800,7 @@ describe('vStaker', function () {
         );
         expect(await staker.totalMu(token0.address)).to.above(totalMuBefore);
         expect(
-            await staker.totalRewardTokensAvailable(
+            await staker.totalExtraRewardTokensAvailable(
                 token0.address,
                 vrsw.address
             )
@@ -816,7 +816,7 @@ describe('vStaker', function () {
         const contractBalanceBefore = await vrsw.balanceOf(staker.address);
         const muBefore = await staker.mu(accounts[0].address, token0.address);
         const totalMuBefore = await staker.totalMu(token0.address);
-        const totalVrswBefore = await staker.totalRewardTokensAvailable(
+        const totalVrswBefore = await staker.totalExtraRewardTokensAvailable(
             token0.address,
             vrsw.address
         );
@@ -844,7 +844,7 @@ describe('vStaker', function () {
         );
         expect(await staker.totalMu(token0.address)).to.below(totalMuBefore);
         expect(
-            await staker.totalRewardTokensAvailable(
+            await staker.totalExtraRewardTokensAvailable(
                 token0.address,
                 vrsw.address
             )
@@ -876,7 +876,7 @@ describe('vStaker', function () {
         const contractBalanceBefore = await vrsw.balanceOf(staker.address);
         const muBefore = await staker.mu(accounts[0].address, token0.address);
         const totalMuBefore = await staker.totalMu(token0.address);
-        const totalVrswBefore = await staker.totalRewardTokensAvailable(
+        const totalVrswBefore = await staker.totalExtraRewardTokensAvailable(
             token0.address,
             vrsw.address
         );
@@ -904,7 +904,7 @@ describe('vStaker', function () {
         );
         expect(await staker.totalMu(token0.address)).to.above(totalMuBefore);
         expect(
-            await staker.totalRewardTokensAvailable(
+            await staker.totalExtraRewardTokensAvailable(
                 token0.address,
                 vrsw.address
             )
@@ -920,7 +920,7 @@ describe('vStaker', function () {
         const amount = ethers.utils.parseEther('10');
         const accountBalanceBefore = await vrsw.balanceOf(accounts[1].address);
         const contractBalanceBefore = await vrsw.balanceOf(staker.address);
-        const totalVrswBefore = await staker.totalRewardTokensAvailable(
+        const totalVrswBefore = await staker.totalExtraRewardTokensAvailable(
             ethers.constants.AddressZero,
             vrsw.address
         );
@@ -954,7 +954,7 @@ describe('vStaker', function () {
         );
         await mine();
         expect(
-            await staker.totalRewardTokensAvailable(
+            await staker.totalExtraRewardTokensAvailable(
                 ethers.constants.AddressZero,
                 vrsw.address
             )
@@ -1018,7 +1018,7 @@ describe('vStaker', function () {
         const contractBalanceBefore = await vrsw.balanceOf(staker.address);
         const muBefore = await staker.mu(accounts[0].address, token0.address);
         const totalMuBefore = await staker.totalMu(token0.address);
-        const totalVrswBefore = await staker.totalRewardTokensAvailable(
+        const totalVrswBefore = await staker.totalExtraRewardTokensAvailable(
             token0.address,
             vrsw.address
         );
@@ -1033,7 +1033,7 @@ describe('vStaker', function () {
         );
         expect(await staker.totalMu(token0.address)).to.above(totalMuBefore);
         expect(
-            await staker.totalRewardTokensAvailable(
+            await staker.totalExtraRewardTokensAvailable(
                 token0.address,
                 vrsw.address
             )
@@ -1099,7 +1099,7 @@ describe('vStaker', function () {
         const contractBalanceBefore = await vrsw.balanceOf(staker.address);
         const muBefore = await staker.mu(accounts[0].address, token0.address);
         const totalMuBefore = await staker.totalMu(token0.address);
-        const totalVrswBefore = await staker.totalRewardTokensAvailable(
+        const totalVrswBefore = await staker.totalExtraRewardTokensAvailable(
             token0.address,
             vrsw.address
         );
@@ -1127,7 +1127,7 @@ describe('vStaker', function () {
         );
         expect(await staker.totalMu(token0.address)).to.below(totalMuBefore);
         expect(
-            await staker.totalRewardTokensAvailable(
+            await staker.totalExtraRewardTokensAvailable(
                 token0.address,
                 vrsw.address
             )
@@ -1166,7 +1166,7 @@ describe('vStaker', function () {
         const contractBalanceBefore = await vrsw.balanceOf(minter.address);
         const muBefore = await staker.mu(accounts[0].address, token0.address);
         const totalMuBefore = await staker.totalMu(token0.address);
-        const totalVrswBefore = await staker.totalRewardTokensAvailable(
+        const totalVrswBefore = await staker.totalExtraRewardTokensAvailable(
             token0.address,
             vrsw.address
         );
@@ -1193,7 +1193,7 @@ describe('vStaker', function () {
         );
         expect(await staker.totalMu(token0.address)).to.equal(totalMuBefore);
         expect(
-            await staker.totalRewardTokensAvailable(
+            await staker.totalExtraRewardTokensAvailable(
                 token0.address,
                 vrsw.address
             )
@@ -1209,7 +1209,7 @@ describe('vStaker', function () {
             ethers.constants.AddressZero
         );
         const totalMuBefore = await staker.totalMu(token0.address);
-        const totalVrswBefore = await staker.totalRewardTokensAvailable(
+        const totalVrswBefore = await staker.totalExtraRewardTokensAvailable(
             token0.address,
             vrsw.address
         );
@@ -1251,7 +1251,7 @@ describe('vStaker', function () {
         ).to.be.equal(muBefore1);
         expect(await staker.totalMu(token0.address)).to.be.equal(totalMuBefore);
         expect(
-            await staker.totalRewardTokensAvailable(
+            await staker.totalExtraRewardTokensAvailable(
                 token0.address,
                 vrsw.address
             )
@@ -1272,7 +1272,7 @@ describe('vStaker', function () {
             ethers.constants.AddressZero
         );
         const totalMuBefore = await staker.totalMu(token0.address);
-        const totalVrswBefore = await staker.totalRewardTokensAvailable(
+        const totalVrswBefore = await staker.totalExtraRewardTokensAvailable(
             token0.address,
             vrsw.address
         );
@@ -1316,7 +1316,7 @@ describe('vStaker', function () {
             totalMuBefore
         );
         expect(
-            await staker.totalRewardTokensAvailable(
+            await staker.totalExtraRewardTokensAvailable(
                 token0.address,
                 vrsw.address
             )

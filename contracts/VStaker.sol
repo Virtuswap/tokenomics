@@ -95,12 +95,20 @@ contract VStaker is IVStaker {
         public baseRewardsCoefficientGlobal;
 
     /**
-     * @dev The total amount of VRSW tokens available for distribution as rewards
+     * @dev The total amount of reward tokens available for distribution
      * for staking specified lpToken.
      * [lpToken][rewardToken]
      */
     mapping(address => mapping(address => SD59x18))
-        public totalRewardTokensAvailable;
+        public totalExtraRewardTokensAvailable;
+
+    /**
+     * @dev The total amount of reward tokens available for distribution
+     * for staking specified lpToken.
+     * [lpToken][rewardToken]
+     */
+    mapping(address => mapping(address => SD59x18))
+        public totalBaseRewardTokensAvailable;
 
     // Virtuswap pair factory address
     address public immutable vPairFactory;
@@ -630,7 +638,8 @@ contract VStaker is IVStaker {
         );
         for (uint i = 0; i < rewardTokens.length; ++i) {
             (
-                totalRewardTokensAvailable[lpToken][rewardTokens[i]],
+                totalExtraRewardTokensAvailable[lpToken][rewardTokens[i]],
+                totalBaseRewardTokensAvailable[lpToken][rewardTokens[i]],
                 extraRewardsCoefficient[who][lpToken][rewardTokens[i]],
                 extraRewardsCoefficientGlobal[lpToken][rewardTokens[i]],
                 baseRewardsCoefficient[who][lpToken][rewardTokens[i]],
@@ -672,8 +681,16 @@ contract VStaker is IVStaker {
         address rewardToken,
         bool isStateChanged
     ) private view returns (uint256) {
-        (, , , , , SD59x18 _senderRewards) = isStateChanged
-            ? (ZERO, ZERO, ZERO, ZERO, ZERO, rewards[who][lpToken][rewardToken])
+        (, , , , , , SD59x18 _senderRewards) = isStateChanged
+            ? (
+                ZERO,
+                ZERO,
+                ZERO,
+                ZERO,
+                ZERO,
+                ZERO,
+                rewards[who][lpToken][rewardToken]
+            )
             : _calculateStateBefore(who, lpToken, rewardToken);
         return uint256(unwrap(_senderRewards));
     }
@@ -691,7 +708,8 @@ contract VStaker is IVStaker {
         private
         view
         returns (
-            SD59x18 _totalRewardTokensAvailable,
+            SD59x18 _totalExtraRewardTokensAvailable,
+            SD59x18 _totalBaseRewardTokensAvailable,
             SD59x18 _senderExtraRewardsCoefficient,
             SD59x18 _extraRewardsCoefficientGlobal,
             SD59x18 _senderBaseRewardsCoefficient,
@@ -699,51 +717,67 @@ contract VStaker is IVStaker {
             SD59x18 _senderRewards
         )
     {
-        if (unwrap(totalMu[lpToken]) != 0) {
-            _totalRewardTokensAvailable = sd(
-                int256(
-                    uint256(
-                        IVChainMinter(minter).calculateTokensForPool(
-                            lpToken,
-                            rewardToken
-                        )
+        _senderRewards = rewards[who][lpToken][rewardToken];
+
+        SD59x18 _totalRewardTokensAvailable = sd(
+            int256(
+                uint256(
+                    IVChainMinter(minter).calculateTokensForPool(
+                        lpToken,
+                        rewardToken
                     )
                 )
-            );
+            )
+        );
 
+        SD59x18 lpBaseRewardsShare = IVTokenomicsParams(tokenomicsParams)
+            .lpBaseRewardsShare();
+        SD59x18 lpBaseRewardsShareFactor = IVTokenomicsParams(tokenomicsParams)
+            .lpBaseRewardsShareFactor();
+
+        if (unwrap(totalMu[lpToken]) != 0) {
             SD59x18 rewardTokensDiff = _totalRewardTokensAvailable.sub(
-                totalRewardTokensAvailable[lpToken][rewardToken]
+                totalExtraRewardTokensAvailable[lpToken][rewardToken]
             );
-
-            SD59x18 lpBaseRewardsShare = IVTokenomicsParams(tokenomicsParams)
-                .lpBaseRewardsShare();
-            SD59x18 lpBaseRewardsShareFactor = IVTokenomicsParams(
-                tokenomicsParams
-            ).lpBaseRewardsShareFactor();
-
-            SD59x18 baseRewards = rewardTokensDiff.mul(lpBaseRewardsShare).div(
-                lpBaseRewardsShareFactor
-            );
-            SD59x18 extraRewards = rewardTokensDiff.sub(baseRewards);
-
-            _baseRewardsCoefficientGlobal = baseRewardsCoefficientGlobal[
-                lpToken
-            ][rewardToken].add(baseRewards.div(totalLpStaked[lpToken]));
+            SD59x18 extraRewards = rewardTokensDiff
+                .mul(lpBaseRewardsShareFactor.sub(lpBaseRewardsShare))
+                .div(lpBaseRewardsShareFactor);
+            _totalExtraRewardTokensAvailable = _totalRewardTokensAvailable;
             _extraRewardsCoefficientGlobal = extraRewardsCoefficientGlobal[
                 lpToken
             ][rewardToken].add(extraRewards.div(totalMu[lpToken]));
-
-            _senderBaseRewardsCoefficient = _baseRewardsCoefficientGlobal;
             _senderExtraRewardsCoefficient = _extraRewardsCoefficientGlobal;
-
             // you can learn more about the formula in Virtuswap Tokenomics Whitepaper
-            _senderRewards = rewards[who][lpToken][rewardToken].add(
+            _senderRewards = _senderRewards.add(
                 mu[who][lpToken].mul(
                     _extraRewardsCoefficientGlobal.sub(
                         extraRewardsCoefficient[who][lpToken][rewardToken]
                     )
                 )
             );
+        } else {
+            (
+                _totalExtraRewardTokensAvailable,
+                _senderExtraRewardsCoefficient,
+                _extraRewardsCoefficientGlobal
+            ) = (
+                totalExtraRewardTokensAvailable[lpToken][rewardToken],
+                extraRewardsCoefficient[who][lpToken][rewardToken],
+                extraRewardsCoefficientGlobal[lpToken][rewardToken]
+            );
+        }
+        if (unwrap(totalLpStaked[lpToken]) != 0) {
+            SD59x18 rewardTokensDiff = _totalRewardTokensAvailable.sub(
+                totalBaseRewardTokensAvailable[lpToken][rewardToken]
+            );
+            SD59x18 baseRewards = rewardTokensDiff.mul(lpBaseRewardsShare).div(
+                lpBaseRewardsShareFactor
+            );
+            _totalBaseRewardTokensAvailable = _totalRewardTokensAvailable;
+            _baseRewardsCoefficientGlobal = baseRewardsCoefficientGlobal[
+                lpToken
+            ][rewardToken].add(baseRewards.div(totalLpStaked[lpToken]));
+            _senderBaseRewardsCoefficient = _baseRewardsCoefficientGlobal;
             if (
                 (lpToken == address(0) || lpStakeIndex[who][lpToken] != 0) &&
                 lpStakes[who].length > 0
@@ -758,19 +792,13 @@ contract VStaker is IVStaker {
             }
         } else {
             (
-                _totalRewardTokensAvailable,
-                _senderExtraRewardsCoefficient,
-                _extraRewardsCoefficientGlobal,
+                _totalBaseRewardTokensAvailable,
                 _senderBaseRewardsCoefficient,
-                _baseRewardsCoefficientGlobal,
-                _senderRewards
+                _baseRewardsCoefficientGlobal
             ) = (
-                totalRewardTokensAvailable[lpToken][rewardToken],
-                extraRewardsCoefficient[who][lpToken][rewardToken],
-                extraRewardsCoefficientGlobal[lpToken][rewardToken],
+                totalBaseRewardTokensAvailable[lpToken][rewardToken],
                 baseRewardsCoefficient[who][lpToken][rewardToken],
-                baseRewardsCoefficientGlobal[lpToken][rewardToken],
-                rewards[who][lpToken][rewardToken]
+                baseRewardsCoefficientGlobal[lpToken][rewardToken]
             );
         }
     }
