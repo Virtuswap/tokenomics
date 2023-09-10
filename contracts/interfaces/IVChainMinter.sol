@@ -8,6 +8,17 @@ pragma solidity 0.8.18;
  */
 interface IVChainMinter {
     /**
+     * @notice Emitted when a new partner reward is distributing.
+     * @param partnerToken is a partner token address
+     * @param amount is an amount of partner tokens to distribute
+     * @param pool is a pool address for which the partner token is distributed
+     * @param from is a timestamp of the distribution start
+     * @param duration is a distribution duration in seconds
+     */
+    event PartnerRewards(address indexed partnerToken, uint128 amount,
+                        address indexed pool, uint128 from, uint128 duration);
+
+    /**
      * @notice Emitted when a new stakeris set.
      * @param stakerAddress is the address of the new staker factory.
      */

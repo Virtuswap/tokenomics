@@ -256,6 +256,7 @@ contract VChainMinter is IVChainMinter, Ownable {
             address(this),
             amount
         );
+        emit PartnerRewards(partnerToken, amount, pool, from, duration);
     }
 
     /// @inheritdoc IVChainMinter
